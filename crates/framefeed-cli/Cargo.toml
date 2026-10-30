@@ -14,5 +14,10 @@ publish = false
 name = "framefeed"
 path = "src/main.rs"
 
+[dependencies]
+framefeed-core = { path = "../framefeed-core" }
+framefeed-proto = { path = "../framefeed-proto" }
+framefeed-source = { path = "../framefeed-source" }
+
 [lints]
 workspace = true

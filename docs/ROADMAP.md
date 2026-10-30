@@ -15,10 +15,14 @@ criteria are met on Linux, macOS **and** Windows, with the CI job green.
 
 ## M1 — First light (kitty + local file)
 
-- [ ] Split crates: `framefeed-core`, `framefeed-proto`, `framefeed-decode`
+- [x] Split crates: `framefeed-core`, `framefeed-proto`, `framefeed-source`
+- [ ] Split out `framefeed-decode` together with the ffmpeg sidecar
 - [ ] ffmpeg sidecar decoder: probe metadata, pipe `rgba` frames, seek, EOF
 - [ ] Renderer: SIMD downscale + fit modes + cell-pixel geometry
-- [ ] Kitty encoder: image id, placement, `C=1`, `o=z`, chunked direct transmission
+- [x] Kitty encoder: image id, placement, `C=1`, `o=z`, chunked direct transmission
+- [x] Render planning: viewport geometry, fit modes, backend/quality height cap
+- [x] HLS master playlist parsing and `--quality` variant selection (library)
+- [x] `framefeed doctor` (hint-based) and `framefeed probe` (playlist inspection)
 - [ ] Pacer: PTS clock, drop-oldest channel, `--fps`
 - [ ] Terminal guard: raw mode, alternate screen, cursor, panic-safe restore
 - [ ] `framefeed play ./clip.mp4` works; `--stats` reports fps/dropped/bytes

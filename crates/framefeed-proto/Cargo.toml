@@ -1,0 +1,18 @@
+[package]
+name = "framefeed-proto"
+description = "Terminal display protocols for framefeed: detection and byte-exact encoders"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+authors.workspace = true
+
+[dependencies]
+framefeed-core = { path = "../framefeed-core" }
+base64 = "0.22"
+flate2 = "1"
+
+[lints]
+workspace = true

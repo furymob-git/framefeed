@@ -113,11 +113,11 @@ invariants: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
 ```text
 crates/
-  framefeed-cli/      # binary: play / serve / doctor
-  framefeed-core/     # (M1) pipeline, frame types, pacer, traits
-  framefeed-proto/    # (M1) kitty / sixel / iterm2 / ansi encoders + capability probe
-  framefeed-decode/   # (M1) ffmpeg sidecar backend, libav backend behind a feature
-  framefeed-source/   # (M3) file/http/HLS sources, variant selection
+  framefeed-cli/      # binary: play / serve / doctor / probe
+  framefeed-core/     # frame + raster types, render planning (pure, no dependencies)
+  framefeed-proto/    # budgets, hint-based detection, kitty encoder
+  framefeed-source/   # quality model, HLS master playlist, variant selection
+  framefeed-decode/   # (M1) ffmpeg sidecar backend
 docs/
   ARCHITECTURE.md     # pipeline, threading, invariants, portability
   PROTOCOLS.md        # kitty vs sixel vs iTerm2 vs ANSI: costs and detection
@@ -127,8 +127,8 @@ docs/
   adr/                # architecture decision records
 ```
 
-Only `framefeed-cli` exists today; the split lands with M1 so that every crate has a
-real API instead of a speculative one.
+The pipeline stage (pacer, renderer) and `framefeed-decode` land with M1; every crate
+that exists today already has a real API, tests and no speculative code.
 
 ## Roadmap
 
