@@ -21,8 +21,7 @@ scripts\play.bat videos\mon-film.mp4
 ./scripts/play.sh videos/mon-film.mp4
 ```
 
-The first `*.mp4`, `*.webm` or `*.mkv` in alphabetical order is used when no path
-is given. Headless test clips stay in `target/fixtures/` (also git-ignored), so
+The first `*.mp4`, `*.webm` or `*.mkv` found is used when no path is given. Headless test clips stay in `target/fixtures/` (also git-ignored), so
 they do not mix with your own media.
 
 ## Served over HTTP
