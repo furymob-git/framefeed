@@ -24,6 +24,9 @@ this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
   `LINES`), and Windows Terminal's Sixel path uses its 10×20 px cell grid so the
   raster matches the window instead of being resampled. The Sixel budget rises to
   1080 px tall to reach full-window height.
+- Sixel frames home the cursor before each image, so frames replace each other
+  instead of stacking and scrolling; `play --stats` reports the cell grid used and
+  `FRAMEFEED_SIZE=COLSxROWS` overrides the measured geometry.
 
 - Repository bootstrap: workspace, lint policy, CI (fmt, clippy, test matrix, MSRV,
   `cargo-deny`, rustdoc), contribution and security policies, issue/PR templates.

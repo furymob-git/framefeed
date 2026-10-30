@@ -70,6 +70,9 @@ impl SixelEncoder {
         self.bits.clear();
         self.bits.resize(width, 0);
 
+        // Sixel draws at the cursor, unlike Kitty placements: home first, or each
+        // frame lands under the previous one and the terminal scrolls.
+        out.extend_from_slice(b"\x1b[H");
         out.extend_from_slice(b"\x1bPq");
         // Raster attributes: pixel aspect 1:1, then width and height.
         let _ = write!(out, "\"1;1;{width};{height}");
@@ -281,6 +284,7 @@ mod tests {
     /// Minimal decoder for the subset this encoder emits.
     fn decode(bytes: &[u8], width: usize, height: usize) -> Vec<u8> {
         let text = std::str::from_utf8(bytes).expect("sixel output is ASCII");
+        let text = text.strip_prefix("\x1b[H").unwrap_or(text);
         let body = text.strip_prefix("\x1bPq").expect("DCS header");
         let body = body.strip_suffix("\x1b\\").expect("ST terminator");
         let raw = body.as_bytes();
@@ -342,7 +346,10 @@ mod tests {
         let mut out = Vec::new();
         SixelEncoder::new().encode_frame(&raster, &mut out);
         let text = String::from_utf8(out).unwrap();
-        assert!(text.starts_with("\x1bPq\"1;1;10;7"), "{text:?}");
+        assert!(
+            text.starts_with("\x1b[H\x1bPq\"1;1;10;7"),
+            "frame must home the cursor before the image: {text:?}"
+        );
         assert!(text.ends_with("\x1b\\"));
         assert_eq!(text.matches('-').count(), 2, "7 rows span two bands");
         for index in [0, PALETTE_SIZE - 1] {

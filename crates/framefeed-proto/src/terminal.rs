@@ -65,6 +65,9 @@ pub fn viewport_from_env() -> Viewport {
 }
 
 fn terminal_dimensions() -> Option<(u16, u16)> {
+    if let Some(dimensions) = size_override() {
+        return Some(dimensions);
+    }
     if let Some((terminal_size::Width(width), terminal_size::Height(height))) =
         terminal_size::terminal_size()
     {
@@ -75,6 +78,16 @@ fn terminal_dimensions() -> Option<(u16, u16)> {
     let cols = env_dimension("COLUMNS")?;
     let rows = env_dimension("LINES")?;
     Some((cols, rows))
+}
+
+/// `FRAMEFEED_SIZE=COLSxROWS` forces the geometry, for clients that cannot be
+/// measured (a `serve` consumer) or for reproducing a layout.
+fn size_override() -> Option<(u16, u16)> {
+    let value = std::env::var("FRAMEFEED_SIZE").ok()?;
+    let (cols, rows) = value.split_once(['x', 'X'])?;
+    let cols = cols.trim().parse::<u16>().ok()?;
+    let rows = rows.trim().parse::<u16>().ok()?;
+    (cols > 0 && rows > 0).then_some((cols, rows))
 }
 
 fn env_dimension(name: &str) -> Option<u16> {

@@ -85,7 +85,8 @@ $ curl -N 'http://127.0.0.1:8080/stream?url=./clip.mp4&q=144p'
 
 `--backend auto` prefers Kitty graphics, then Sixel, then ANSI half-blocks; force
 one with `--backend kitty|sixel|ansi`. `--quality auto` (the default) sizes the
-raster from the real terminal dimensions, so the video fills the window.
+raster from the real terminal dimensions, so the video fills the window;
+`FRAMEFEED_SIZE=COLSxROWS` forces the geometry when it cannot be measured.
 Playback is video-only for now: audio and seeking are M4.
 
 Quality is a *rendering* budget: `--quality 144p` caps the raster at 144 px tall, so

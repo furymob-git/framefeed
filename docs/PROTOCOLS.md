@@ -72,6 +72,9 @@ then six-row bands of characters encoding 6 vertical pixels each, with RLE `!n`.
   cost. **Implemented:** fixed 240-entry palette (6×6×6 cube + 24-step grey ramp,
   near-neutral pixels routed to the ramp), per-colour run-length encoding. Adaptive
   palette with median cut and dithering are `--dither adaptive` work for M6.
+- Eight frames: each frame begins with `CSI H` (cursor home). Sixel draws at the
+  cursor, so without homing every frame lands under the previous one and the
+  terminal scrolls instead of animating.
 - No in-place updates: every frame is a full repaint. The backend budget is 1080 px
   tall at 30 fps; smaller rasters are cheaper, a full-window 1440×1080 raster
   measured 24.7 fps on the reference machine (see `PERFORMANCE.md`).

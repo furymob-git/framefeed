@@ -184,11 +184,13 @@ fn play(options: PlayOptions) -> Result<(), String> {
     if options.stats {
         let elapsed = started.elapsed().as_secs_f64().max(f64::EPSILON);
         eprintln!(
-            "framefeed: backend={} raster={}x{} fps={fps:.2} frames={frames} dropped={} \
-             {:.1} fps {:.1} MiB written ({:.0} KiB/frame) in {:.2}s",
+            "framefeed: backend={} raster={}x{} cells={}x{} fps={fps:.2} frames={frames} \
+             dropped={} {:.1} fps {:.1} MiB written ({:.0} KiB/frame) in {:.2}s",
             backend.name(),
             plan.raster.width,
             plan.raster.height,
+            viewport.cols,
+            viewport.rows,
             pacer.dropped(),
             frames as f64 / elapsed,
             bytes as f64 / (1024.0 * 1024.0),
