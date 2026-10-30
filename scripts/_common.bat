@@ -27,6 +27,7 @@ if not defined ROWS set "ROWS=24"
 rem Windows Terminal is the only pixel-capable terminal here (Sixel).
 set "IN_WT=0"
 if defined WT_SESSION set "IN_WT=1"
+if defined WT_PROFILE_ID set "IN_WT=1"
 set "WT_EXE=%LOCALAPPDATA%\Microsoft\WindowsApps\wt.exe"
 
 set "BIN=%ROOT%\target\release\framefeed.exe"
@@ -36,12 +37,22 @@ if not exist "%BIN%" (
     if errorlevel 1 exit /b 1
 )
 
-rem Prefer the ffmpeg build unpacked under target\tools, otherwise rely on PATH.
+rem Prefer the ffmpeg build unpacked under target\tools, or winget's package, otherwise rely on PATH.
 if not defined FRAMEFEED_FFMPEG (
     for /d %%D in ("%ROOT%\target\tools\*") do (
         if exist "%%~fD\bin\ffmpeg.exe" (
             set "FRAMEFEED_FFMPEG=%%~fD\bin\ffmpeg.exe"
             set "FRAMEFEED_FFPROBE=%%~fD\bin\ffprobe.exe"
+        )
+    )
+)
+if not defined FRAMEFEED_FFMPEG (
+    for /d %%D in ("%LOCALAPPDATA%\Microsoft\WinGet\Packages\Gyan.FFmpeg*") do (
+        for /d %%S in ("%%~fD\ffmpeg*") do (
+            if exist "%%~fS\bin\ffmpeg.exe" (
+                set "FRAMEFEED_FFMPEG=%%~fS\bin\ffmpeg.exe"
+                set "FRAMEFEED_FFPROBE=%%~fS\bin\ffprobe.exe"
+            )
         )
     )
 )

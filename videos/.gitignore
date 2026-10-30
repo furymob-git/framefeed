@@ -5,3 +5,6 @@
 !README.md
 !demo/
 !demo/**
+
+# Explicit pattern for copyrighted / private media
+*.private.*

@@ -106,7 +106,7 @@ impl Hints {
             term_program: env_var("TERM_PROGRAM"),
             kitty_window_id: env_var("KITTY_WINDOW_ID"),
             wezterm_executable: env_var("WEZTERM_EXECUTABLE"),
-            windows_terminal_session: env_var("WT_SESSION"),
+            windows_terminal_session: env_var("WT_SESSION").or_else(|| env_var("WT_PROFILE_ID")),
             tmux: env_var("TMUX"),
             screen: env_var("STY"),
         }

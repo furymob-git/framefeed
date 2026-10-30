@@ -204,11 +204,48 @@ impl Drop for FfmpegDecoder {
 }
 
 fn ffmpeg_bin() -> String {
-    std::env::var("FRAMEFEED_FFMPEG").unwrap_or_else(|_| "ffmpeg".to_string())
+    find_binary("FRAMEFEED_FFMPEG", "ffmpeg")
 }
 
 fn ffprobe_bin() -> String {
-    std::env::var("FRAMEFEED_FFPROBE").unwrap_or_else(|_| "ffprobe".to_string())
+    find_binary("FRAMEFEED_FFPROBE", "ffprobe")
+}
+
+fn find_binary(env_var: &str, name: &str) -> String {
+    if let Ok(var) = std::env::var(env_var) {
+        if !var.trim().is_empty() {
+            return var;
+        }
+    }
+    #[cfg(windows)]
+    {
+        if let Ok(local_app_data) = std::env::var("LOCALAPPDATA") {
+            let winget_dir = std::path::Path::new(&local_app_data)
+                .join("Microsoft")
+                .join("WinGet")
+                .join("Packages");
+            if let Ok(entries) = std::fs::read_dir(&winget_dir) {
+                for entry in entries.flatten() {
+                    let file_name = entry.file_name();
+                    let name_str = file_name.to_string_lossy();
+                    if name_str.starts_with("Gyan.FFmpeg") {
+                        if let Ok(subentries) = std::fs::read_dir(entry.path()) {
+                            for subentry in subentries.flatten() {
+                                let candidate = subentry
+                                    .path()
+                                    .join("bin")
+                                    .join(format!("{name}.exe"));
+                                if candidate.is_file() {
+                                    return candidate.to_string_lossy().into_owned();
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+    name.to_string()
 }
 
 fn scale_filter(size: OutputSize) -> String {

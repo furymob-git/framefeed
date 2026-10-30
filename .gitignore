@@ -16,6 +16,10 @@
 !videos/demo/*.mp4
 !videos/demo/*.webm
 
+# Private / copyrighted media
+*.private.*
+videos/*.private.*
+
 # Coverage & profiling
 *.profraw
 /coverage/
