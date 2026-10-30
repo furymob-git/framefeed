@@ -1,0 +1,73 @@
+name: Bug report
+description: Something renders wrong, drops frames, or crashes
+labels: ["bug", "needs-repro"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for the report. Before filing, please try `framefeed doctor` and include
+        its output — most rendering bugs are capability or geometry issues.
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened
+      description: Actual behavior, and what you expected instead.
+    validations:
+      required: true
+  - type: textarea
+    id: command
+    attributes:
+      label: Command and source
+      description: The exact command line, plus the source type (local file, HLS URL, ...). Redact anything private.
+      render: console
+    validations:
+      required: true
+  - type: dropdown
+    id: backend
+    attributes:
+      label: Display backend
+      options:
+        - auto (detected)
+        - kitty
+        - sixel
+        - iterm2
+        - ansi
+        - ascii
+    validations:
+      required: true
+  - type: input
+    id: terminal
+    attributes:
+      label: Terminal and version
+      placeholder: WezTerm 20240203, Windows Terminal 1.22, kitty 0.44, ...
+    validations:
+      required: true
+  - type: input
+    id: os
+    attributes:
+      label: OS and architecture
+      placeholder: Windows 11 24H2 x86_64, macOS 15 arm64, Ubuntu 24.04 x86_64
+    validations:
+      required: true
+  - type: input
+    id: versions
+    attributes:
+      label: framefeed and ffmpeg versions
+      placeholder: framefeed 0.1.0 (commit abc1234), ffmpeg 7.1
+    validations:
+      required: true
+  - type: textarea
+    id: stats
+    attributes:
+      label: Stats and logs
+      description: Output of `framefeed play ... --stats` and `RUST_LOG=debug` if relevant.
+      render: console
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Confirmations
+      options:
+        - label: I searched existing issues for this problem
+          required: true
+        - label: This is not a security issue (those go to SECURITY.md)
+          required: true

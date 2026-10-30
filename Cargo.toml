@@ -1,0 +1,38 @@
+# Cargo workspace — see docs/ARCHITECTURE.md for the planned crate split.
+[workspace]
+resolver = "3"
+members = ["crates/*"]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.85"
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/framefeed/framefeed"
+homepage = "https://github.com/framefeed/framefeed"
+authors = ["The framefeed authors"]
+
+[workspace.lints.rust]
+unsafe_code = "forbid"
+unused_must_use = "deny"
+rust_2018_idioms = { level = "warn", priority = -1 }
+
+[workspace.lints.clippy]
+all = "warn"
+correctness = "deny"
+suspicious = "warn"
+complexity = "warn"
+perf = "warn"
+
+# Release profile tuned for a media hot path: no LTO by default (fast local
+# builds), but a fat-LTO profile is available for benchmarks and releases.
+[profile.release]
+lto = "thin"
+codegen-units = 1
+panic = "abort"
+strip = "debuginfo"
+
+[profile.bench]
+lto = "fat"
+codegen-units = 1
+debug = true

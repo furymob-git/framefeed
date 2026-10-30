@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Design discussion / question
+    url: https://github.com/framefeed/framefeed/discussions
+    about: Ask questions, share terminal conformance reports, discuss ideas before an RFC.
+  - name: Security vulnerability
+    url: https://github.com/framefeed/framefeed/security/advisories/new
+    about: Report privately. Never open a public issue for a vulnerability.

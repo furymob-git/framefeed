@@ -1,0 +1,58 @@
+name: Feature request
+description: Propose a capability, backend, or quality-of-life improvement
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Large proposals (new backend, pipeline change, new dependency) need agreement
+        before code. This form is the start of that conversation, not a spec.
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What can't you do today? Be concrete about your terminal, OS and source.
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution
+      description: What should happen from the user's point of view (CLI flags, output)?
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: Existing tools, flags, or workarounds you tried.
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      multiple: true
+      options:
+        - backend: kitty
+        - backend: sixel
+        - backend: ansi/ascii
+        - decoding
+        - streaming / HLS
+        - quality selection
+        - performance
+        - CLI / UX
+        - docs
+        - CI / release
+    validations:
+      required: true
+  - type: textarea
+    id: perf
+    attributes:
+      label: Performance impact
+      description: Does this touch the hot path? What is the per-frame cost, in bytes or CPU?
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Confirmations
+      options:
+        - label: I searched existing issues and docs/ROADMAP.md
+          required: true
