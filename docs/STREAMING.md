@@ -44,6 +44,12 @@ choose = eligible.min_by(height, then bandwidth)
          or variants.max_by(height) if eligible is empty
 ```
 
+**Status (M1):** `select_variant` is implemented and exercised by `framefeed probe`.
+The `play` path currently passes the URL straight to ffmpeg, which applies its own
+variant heuristic, so `--quality` reduces pixels but not bytes downloaded yet. Hooking
+our selection into the source layer before spawning the decoder is the M3 task that
+makes the bandwidth promise real.
+
 Additional rules:
 
 - Prefer variants whose codecs the decoder can handle without a software fallback.

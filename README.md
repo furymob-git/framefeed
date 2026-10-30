@@ -84,11 +84,12 @@ $ curl -N 'http://127.0.0.1:8080/stream?url=./clip.mp4&q=144p'
 back to ANSI half-blocks otherwise (Sixel and iTerm2 land in M2). Playback is
 video-only for now: audio and seeking are M4.
 
-Quality is a *rendering* budget (how many pixels your terminal can actually show),
-and, when the source is adaptive, also a *source* selection: framefeed picks the
-cheapest variant that still exceeds the target raster, so `--quality 144p` over a
-phone tether downloads roughly 144p worth of bytes, not a 1080p stream downscaled
-after the fact. Details: [docs/STREAMING.md](docs/STREAMING.md).
+Quality is a *rendering* budget: `--quality 144p` caps the raster at 144 px tall, so
+the decoder, encoder and pipe all move fewer pixels. The library also picks the
+cheapest adequate HLS variant from a master playlist (`framefeed probe` shows the
+decision), but the play path still hands the URL to ffmpeg, which applies its own
+variant choice — wiring ours into playback is M3. Details:
+[docs/STREAMING.md](docs/STREAMING.md).
 
 ## Design principles
 
