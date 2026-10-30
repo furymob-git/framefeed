@@ -54,15 +54,24 @@
     Sixel or truecolor half-blocks — sized to your actual window, with a quality knob.
   </p>
 
-  <h2>Play a bundled clip</h2>
-  <pre><span class="c">$</span> framefeed serve <span class="c"># bundled clips at /&lt;name&gt;</span>
-<span class="c">$</span> curl -N <span class="p">'http://127.0.0.1:8080/sintel'</span>
-<span class="c">$</span> curl -N <span class="p">'http://127.0.0.1:8080/sprite-fright?q=240p&amp;backend=sixel'</span></pre>
+  <h2>Stream a clip into this terminal</h2>
+  <pre><span class="c"># 1. start the server (the image already ships the demo clips)</span>
+<span class="c">$</span> docker run --rm -p 8080:8080 ghcr.io/furymob-git/framefeed:latest
 
-  <h2>Or any source</h2>
-  <pre><span class="c">$</span> framefeed play ./clip.mp4 <span class="c">--quality 480p --backend auto</span>
-<span class="c">$</span> framefeed play https://host/master.m3u8 <span class="c">--quality 720p --stats</span>
-<span class="c">$</span> curl -N <span class="p">'http://127.0.0.1:8080/stream?url=./clip.mp4&amp;q=144p'</span></pre>
+<span class="c"># 2. then, from any terminal window:</span>
+<span class="c">$</span> curl -N <span class="p">'http://127.0.0.1:8080/sintel'</span>
+<span class="c">$</span> curl -N <span class="p">'http://127.0.0.1:8080/sprite-fright?q=240p&amp;backend=sixel'</span>
+<span class="c">$</span> curl -N <span class="p">'http://127.0.0.1:8080/'</span>   <span class="c"># index + parameters</span></pre>
+
+  <h2>Or from source, no Docker</h2>
+  <pre><span class="c">$</span> cargo build --release
+<span class="c">$</span> ./target/release/framefeed serve --media videos/demo
+<span class="c">$</span> ./target/release/framefeed play ./clip.mp4 <span class="c">--quality 480p --backend auto</span></pre>
+
+  <h2>Any source, and a quality knob</h2>
+  <pre><span class="c">$</span> framefeed play https://host/master.m3u8 <span class="c">--quality 720p --stats</span>
+<span class="c">$</span> curl -N <span class="p">'http://127.0.0.1:8080/stream?url=https%3A%2F%2Fhost%2Fv.m3u8&amp;q=360p'</span>
+<span class="c">$</span> curl -N <span class="p">'http://127.0.0.1:8080/my-film'</span>   <span class="c"># your own file, via --media</span></pre>
 
   <h2>Bundled clips (CC BY, Blender Open Movies)</h2>
   <ul class="clips">
@@ -75,9 +84,12 @@
   </ul>
 
   <p class="note">
-    <code>backend=sixel</code> for real pixels (Windows Terminal 1.22+, WezTerm, foot,
-    Konsole, iTerm2) — it is also about ten times lighter on the wire than ANSI, which
-    is the default because it cannot corrupt a terminal without a graphics protocol.
+    This page is static hosting: it cannot encode video, so the <code>curl</code> has to
+    target a running <code>framefeed serve</code> — the Docker image above, or your own
+    machine. Use <code>backend=sixel</code> for real pixels (Windows Terminal 1.22+,
+    WezTerm, foot, Konsole, iTerm2); it is also about ten times lighter on the wire than
+    ANSI, which stays the default because it cannot corrupt a terminal without a
+    graphics protocol.
   </p>
 
   <footer>
