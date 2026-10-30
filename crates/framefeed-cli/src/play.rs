@@ -10,7 +10,7 @@ use framefeed_core::{Fit, Pace, Pacer, Raster, Size, plan_render};
 use framefeed_decode::{Decoder, FfmpegDecoder, OutputSize, probe};
 use framefeed_proto::{
     AnsiEncoder, Backend, Hints, KittyEncoder, KittyOptions, SixelEncoder, TerminalGuard, detect,
-    viewport_for,
+    stdout_is_tty, viewport_for,
 };
 use framefeed_source::Quality;
 
@@ -214,6 +214,11 @@ fn resolve_backend(choice: BackendChoice) -> Backend {
                 if other != Backend::Ansi {
                     eprintln!(
                         "framefeed play: {other} detected but not implemented yet; using ansi"
+                    );
+                } else if stdout_is_tty() {
+                    eprintln!(
+                        "framefeed play: no graphics protocol in this terminal; using ANSI \
+                         half-blocks (run in Windows Terminal 1.22+ for real pixels)"
                     );
                 }
                 Backend::Ansi
