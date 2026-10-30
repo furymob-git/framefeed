@@ -31,3 +31,6 @@ Thumbs.db
 .env
 .env.*
 !.env.example
+
+# Local helper scripts (machine-specific paths, generated for this workspace)
+/scripts/
