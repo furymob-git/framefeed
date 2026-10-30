@@ -1,0 +1,16 @@
+[package]
+name = "framefeed-decode"
+description = "Decoder backends for framefeed; ffmpeg sidecar for now"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+authors.workspace = true
+
+[dependencies]
+framefeed-core = { path = "../framefeed-core" }
+
+[lints]
+workspace = true

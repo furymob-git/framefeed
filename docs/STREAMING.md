@@ -81,17 +81,21 @@ Query parameters:
 |---|---|---|
 | `url` | path or http(s) URL | required |
 | `q` | `144p…1080p`, `auto` | `auto` |
-| `backend` | `ansi`, `ascii`, `sixel`, `kitty` | `ascii` |
+| `backend` | `ansi`, `kitty` | `ansi` |
 | `fps` | 1–60 | backend-dependent |
 | `cols`, `rows` | integers | client-provided via query, else 80×24 |
 
 Constraints (non-negotiable, they are the abuse surface):
 
-- **SSRF guard:** scheme allowlist (`http`, `https`, and local paths only when
-  `--allow-local` is set); resolve DNS and reject loopback/link-local/private ranges
-  unless explicitly allowed; block `file://`, `gopher://`, and metadata endpoints.
-- **Limits:** max concurrent streams, per-IP request rate, max duration, max bytes per
-  stream, idle timeout, max source size for local paths.
+- **SSRF guard (implemented):** scheme allowlist (`http`, `https`, and local paths
+  only when `--allow-local` is set); DNS resolution rejecting loopback, private,
+  link-local, CGNAT, ULA and multicast addresses; `file://` and other schemes are
+  refused before any process is spawned.
+- **Limits (partial):** max concurrent streams enforced (429 beyond it) plus request
+  read/write timeouts. Per-IP rate limiting, max duration and max bytes per stream
+  are still to do.
+- **Residual risk:** a *public* playlist can reference private segment URLs that
+  ffmpeg would still fetch. Closing that needs demuxer-level allowlisting.
 - **No shell:** never interpolate user input into a command line; exec with argument
   vectors and an explicit ffmpeg protocol whitelist.
 - **Resource caps:** one decoder process per stream, killed on disconnect; no shared

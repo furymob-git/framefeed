@@ -212,6 +212,27 @@ impl Raster {
         &mut self.pixels
     }
 
+    /// Copies tightly packed RGBA pixels into this raster, dropping alpha.
+    ///
+    /// Decoders hand us RGBA; the encoders transmit RGB24.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`InvalidBuffer`] when `rgba` is not `width * height * 4` bytes.
+    pub fn write_rgba(&mut self, rgba: &[u8]) -> Result<(), InvalidBuffer> {
+        let expected = self.pixels.len() / 3 * 4;
+        if rgba.len() != expected {
+            return Err(InvalidBuffer {
+                expected,
+                actual: rgba.len(),
+            });
+        }
+        for (destination, source) in self.pixels.chunks_exact_mut(3).zip(rgba.chunks_exact(4)) {
+            destination.copy_from_slice(&source[..3]);
+        }
+        Ok(())
+    }
+
     fn buffer_len(width: u32, height: u32) -> usize {
         usize::try_from(width)
             .unwrap_or_default()
@@ -256,6 +277,14 @@ mod tests {
         raster.pixels_mut()[0] = 255;
         assert_eq!(raster.pixels()[0], 255);
         assert_eq!(raster.size().width, 2);
+    }
+
+    #[test]
+    fn raster_drops_alpha_from_rgba() {
+        let mut raster = Raster::new(1, 1);
+        raster.write_rgba(&[10, 20, 30, 255]).unwrap();
+        assert_eq!(raster.pixels(), &[10u8, 20, 30][..]);
+        assert!(raster.write_rgba(&[1, 2, 3]).is_err());
     }
 
     #[test]

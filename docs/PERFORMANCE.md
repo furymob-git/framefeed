@@ -1,8 +1,8 @@
 # Performance
 
 Performance is a feature with a budget, not a vibe. This document defines the targets,
-the measurement method, and the regression policy. Until M1 benchmarks land, every
-number here is a **target or an estimate**, explicitly marked as such.
+the measurement method, and the regression policy. Targets are marked as targets;
+section 7 records the first measured run.
 
 ## 1. Targets
 
@@ -95,3 +95,37 @@ this table.
 - SSH bandwidth is the wall; the only real lever is fewer bytes per frame.
 - `zlib` on noisy footage compresses poorly (~1.2×); it shines on screen content and
   animation. Compression must be adaptive, not religious.
+
+## 7. First measurements (M1)
+
+Environment: Windows 11 x86_64, Rust 1.98 stable (release profile), ffmpeg N-128212
+(BtbN build), output piped to a file. These numbers therefore cover decode, scale,
+encode and write — **not** the terminal's own rasterisation or PTY backpressure.
+
+Sources: an 8 s excerpt of a 480×360 / 30 fps clip, a 1 s `testsrc2` synthetic clip,
+and the public Mux HLS test stream (Big Buck Bunny) over HTTPS.
+
+| Scenario | Raster | Frames | Dropped | Wall | Effective fps | Bytes/frame |
+|---|---|---|---|---|---|---|
+| ANSI, `--quality 240p --fps 24` | 320×240 | 240 | 0 | 10.02 s | 24.0 | 188 KiB |
+| Kitty, `--quality 360p --fps 30` | 480×360 | 240 | 0 | 8.03 s | 29.9 | 29 KiB (zlib) |
+| ANSI, synthetic 10 fps cap | 320×240 | 10 | 0 | 0.95 s | 10.5 | 378 KiB |
+| HLS (Mux), 8 s cap, 10 fps | 427×240 | 67 | — | 8 s | — | ~290 KiB |
+
+What this already tells us:
+
+- Pacing is accurate to within 0.5% at both 24 and 30 fps, with zero drops on a
+  local file.
+- Kitty + zlib is **6.5× cheaper per frame** than ANSI at a comparable size
+  (29 KiB vs 188 KiB), which is the whole argument for the Kitty backend.
+- The synthetic test pattern is a worst case for ANSI (~378 KiB/frame): noise does
+  not compress and produces maximal SGR churn.
+
+> A first run reported 47 fps against a 24 fps cap. That measurement exposed a pacer
+> bug: the wait path did not reserve the slot for the frame it was delaying, so every
+> other frame presented immediately and playback ran at roughly double speed. Fixed,
+> covered by a regression test, and re-measured above.
+
+Still to measure: the 60 fps target at 120×34 cells with a real terminal attached,
+Sixel budgets, startup latency and memory. Those are the M1 exit criteria the
+benchmark suite (criterion + hyperfine) will track.

@@ -17,25 +17,33 @@ criteria are met on Linux, macOS **and** Windows, with the CI job green.
 
 - [x] Split crates: `framefeed-core`, `framefeed-proto`, `framefeed-source`
 - [ ] Split out `framefeed-decode` together with the ffmpeg sidecar
-- [ ] ffmpeg sidecar decoder: probe metadata, pipe `rgba` frames, seek, EOF
-- [ ] Renderer: SIMD downscale + fit modes + cell-pixel geometry
+- [x] ffmpeg sidecar decoder: probe metadata, pipe raw RGBA frames, clean EOF
+      (seeking arrives with M4)
+- [x] Render planning + fit modes; scaling delegated to swscale in the sidecar for
+      M1 (an in-process SIMD scaler stays an M6 optimisation)
 - [x] Kitty encoder: image id, placement, `C=1`, `o=z`, chunked direct transmission
 - [x] Render planning: viewport geometry, fit modes, backend/quality height cap
 - [x] HLS master playlist parsing and `--quality` variant selection (library)
 - [x] `framefeed doctor` (hint-based) and `framefeed probe` (playlist inspection)
-- [ ] Pacer: PTS clock, drop-oldest channel, `--fps`
-- [ ] Terminal guard: raw mode, alternate screen, cursor, panic-safe restore
-- [ ] `framefeed play ./clip.mp4` works; `--stats` reports fps/dropped/bytes
+- [x] Pacer: fps deadlines, late-frame resync, drop accounting, `--fps`
+- [x] Terminal guard: alternate screen, cursor, Ctrl-C and panic-safe restore
+- [x] `framefeed play ./clip.mp4` works on kitty and ansi; `--stats` reports
+      fps/dropped/bytes per frame
 - [ ] Benchmarks: criterion for scale+encode, hyperfine for startup/first frame
 
 **Exit criteria:** 60 fps at 120×34 cells on the reference machine with 0 dropped
 frames on a 30 s 1080p fixture; clean exit restores the terminal; byte-exact golden
 tests for the kitty encoder.
 
+**Status:** functionally complete and verified end to end with a real ffmpeg build.
+The 60 fps / zero-dropped-frame criterion and the benchmark suite still need to be
+measured; see `docs/PERFORMANCE.md`.
+
 ## M2 — Universal (sixel, ANSI, detection)
 
 - [ ] Sixel encoder with 240-color cube + RLE (adaptive palette behind a flag)
-- [ ] ANSI half-block and ASCII backends
+- [x] ANSI half-block backend
+- [ ] ASCII mode (luminance ramp)
 - [ ] Capability detection (hints → probes → fallback) with timeouts
 - [ ] `framefeed doctor` prints the resolved matrix for the current terminal
 - [ ] Resize handling (SIGWINCH / console events) with debounce
@@ -69,11 +77,13 @@ remains interactive after exit; seeking is < 250 ms to first frame.
 
 ## M5 — `serve` (curl mode)
 
-- [ ] `framefeed serve`: `GET /stream?url=<src>&q=<quality>&backend=<name>`
-- [ ] Frame-paced ANSI/ASCII/sixel output with cursor-home repaint (`curl -N` friendly)
-- [ ] SSRF guard (scheme allowlist, no link-local/loopback targets by default),
-      per-IP rate limits, max concurrent streams, idle timeout
-- [ ] `GET /healthz`, structured logs; deployment notes for a small VPS
+- [x] `framefeed serve`: `GET /stream?url=<src>&q=<quality>&backend=<name>`
+- [x] Frame-paced ANSI/kitty output with cursor-home repaint (`curl -N` friendly)
+- [x] SSRF guard: scheme allowlist, private/loopback/link-local resolution checks,
+      max concurrent streams (429 beyond it), read/write timeouts
+- [ ] Per-IP rate limiting, max duration/bytes per stream, structured logs
+- [x] `GET /healthz`
+- [ ] Deployment notes for a small VPS
 
 **Exit criteria:** `curl -N 'http://localhost:8080/stream?url=./clip.mp4&q=144p'`
 animates in a plain terminal; fuzzed URL handling produces no panics or SSRF bypass.

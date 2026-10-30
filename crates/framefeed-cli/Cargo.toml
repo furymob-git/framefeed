@@ -16,8 +16,11 @@ path = "src/main.rs"
 
 [dependencies]
 framefeed-core = { path = "../framefeed-core" }
+framefeed-decode = { path = "../framefeed-decode" }
 framefeed-proto = { path = "../framefeed-proto" }
+framefeed-server = { path = "../framefeed-server" }
 framefeed-source = { path = "../framefeed-source" }
+ctrlc = "3"
 
 [lints]
 workspace = true

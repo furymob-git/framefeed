@@ -29,7 +29,8 @@ perf = "warn"
 [profile.release]
 lto = "thin"
 codegen-units = 1
-panic = "abort"
+# Unwind, not abort: the terminal guard restores the screen from `Drop` on panic.
+panic = "unwind"
 strip = "debuginfo"
 
 [profile.bench]

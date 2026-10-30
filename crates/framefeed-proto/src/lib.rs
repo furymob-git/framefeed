@@ -7,10 +7,14 @@
 
 #![forbid(unsafe_code)]
 
+mod ansi;
 mod budget;
 mod detect;
 mod kitty;
+mod terminal;
 
+pub use ansi::AnsiEncoder;
 pub use budget::Budget;
 pub use detect::{Backend, Detection, Hints, Multiplexer, detect};
 pub use kitty::{Compression, EncodeError, KittyEncoder, KittyOptions};
+pub use terminal::{TerminalGuard, stdout_is_tty, viewport_from_env};

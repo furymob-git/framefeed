@@ -1,0 +1,19 @@
+[package]
+name = "framefeed-server"
+description = "curl-friendly HTTP streaming for framefeed (terminal video over HTTP)"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+authors.workspace = true
+
+[dependencies]
+framefeed-core = { path = "../framefeed-core" }
+framefeed-decode = { path = "../framefeed-decode" }
+framefeed-proto = { path = "../framefeed-proto" }
+framefeed-source = { path = "../framefeed-source" }
+
+[lints]
+workspace = true

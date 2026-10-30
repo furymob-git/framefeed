@@ -6,10 +6,13 @@
 [![CI](https://github.com/framefeed/framefeed/actions/workflows/ci.yml/badge.svg)](https://github.com/framefeed/framefeed/actions/workflows/ci.yml)
 [![license](https://img.shields.io/badge/license-MIT-blue)](#license)
 
-> **Status: pre-alpha / design phase.** This repository currently contains the
-> architecture, protocol research, performance budgets and roadmap. There is no
-> working player yet — see [docs/ROADMAP.md](docs/ROADMAP.md) and
-> [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
+> **Status: alpha.** `framefeed play` decodes local files and network streams and
+> paints them with the Kitty graphics protocol or truecolor ANSI half-blocks;
+> `framefeed serve` streams terminal video over HTTP for `curl`. Audio, Sixel and
+> iTerm2 output are still missing — see [docs/ROADMAP.md](docs/ROADMAP.md).
+>
+> Requires `ffmpeg` and `ffprobe` on `PATH` (or `FRAMEFEED_FFMPEG` /
+> `FRAMEFEED_FFPROBE`).
 
 framefeed is a terminal video player: it decodes an `.mp4`/`.webm`/`.mkv` file or a
 network stream and paints the frames as real pixels inside your terminal, using the
@@ -59,19 +62,27 @@ Video means "can repaint fast enough to look like motion", not just "can show a 
 > On Windows, kitty itself does not run natively: use WezTerm (Kitty graphics) or
 > Windows Terminal 1.22+ (Sixel). This is the primary development platform for the
 > project, so it is tested first, not last.
+>
+> framefeed currently drives **Kitty graphics** and **ANSI half-blocks**. Sixel and
+> iTerm2 encoders are planned (M2), so a Sixel-only terminal such as Windows Terminal
+> works today through the ANSI fallback.
 
-## Planned usage
+## Usage
 
 ```console
 $ framefeed play ./clip.mp4
 $ framefeed play ./clip.webm --quality 480p --fps 30
-$ framefeed play https://example.com/master.m3u8 --quality 720p
-$ framefeed play ./clip.mp4 --backend sixel --fit cover
+$ framefeed play https://example.com/master.m3u8 --quality 720p --stats
+$ framefeed play ./clip.mp4 --backend ansi --fit cover
 $ framefeed doctor
-$ framefeed serve --listen 127.0.0.1:8080
+$ framefeed serve --allow-local --listen 127.0.0.1:8080
 # then, in any terminal:
 $ curl -N 'http://127.0.0.1:8080/stream?url=./clip.mp4&q=144p'
 ```
+
+`--backend auto` uses Kitty graphics when the terminal advertises it and falls
+back to ANSI half-blocks otherwise (Sixel and iTerm2 land in M2). Playback is
+video-only for now: audio and seeking are M4.
 
 Quality is a *rendering* budget (how many pixels your terminal can actually show),
 and, when the source is adaptive, also a *source* selection: framefeed picks the
@@ -114,10 +125,11 @@ invariants: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 ```text
 crates/
   framefeed-cli/      # binary: play / serve / doctor / probe
-  framefeed-core/     # frame + raster types, render planning (pure, no dependencies)
-  framefeed-proto/    # budgets, hint-based detection, kitty encoder
+  framefeed-core/     # frames, render planning, pacer (pure, no dependencies)
+  framefeed-proto/    # budgets, detection, kitty + ansi encoders, terminal guard
+  framefeed-decode/   # ffmpeg/ffprobe sidecar decoder
   framefeed-source/   # quality model, HLS master playlist, variant selection
-  framefeed-decode/   # (M1) ffmpeg sidecar backend
+  framefeed-server/   # /stream and /healthz over a hand-written HTTP/1.1 server
 docs/
   ARCHITECTURE.md     # pipeline, threading, invariants, portability
   PROTOCOLS.md        # kitty vs sixel vs iTerm2 vs ANSI: costs and detection
@@ -127,8 +139,8 @@ docs/
   adr/                # architecture decision records
 ```
 
-The pipeline stage (pacer, renderer) and `framefeed-decode` land with M1; every crate
-that exists today already has a real API, tests and no speculative code.
+The pipeline is wired end to end: `play` and `serve` both decode, plan, pace and
+encode. Every crate has a real API and tests.
 
 ## Roadmap
 

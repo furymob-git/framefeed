@@ -11,6 +11,8 @@ this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 - Licensed under MIT only (previously MIT OR Apache-2.0), with the license text in
   `LICENSE` so GitHub detects it.
+- Release builds unwind instead of aborting, so the terminal guard restores the
+  screen and cursor on panic.
 
 ### Added
 
@@ -32,5 +34,19 @@ this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
   detection, and byte-exact encoder tests.
 - `framefeed-source`: `--quality` parsing, HLS master playlist parser, variant
   selection (smallest adequate, bandwidth tie-break) and URI resolution.
+- `framefeed play`: decodes a local file or URL through the ffmpeg sidecar, plans the
+  raster from the viewport and `--quality`, paces presentation, and paints with the
+  Kitty graphics protocol or ANSI half-blocks. Includes `--fps`, `--fit`,
+  `--backend`, `--stats`, and Ctrl-C-safe terminal cleanup.
+- `framefeed serve`: `GET /stream?url=&q=&backend=&fps=&cols=&rows=&fit=` streams
+  escape sequences for `curl -N`, with `GET /healthz`, an SSRF guard (scheme
+  allowlist, private-address rejection) and a concurrent-stream limit.
+- `framefeed-decode`: ffmpeg/ffprobe sidecar (metadata probe, raw RGBA pipe, clean
+  EOF, kill-on-drop) with `FRAMEFEED_FFMPEG` / `FRAMEFEED_FFPROBE` overrides.
+- `framefeed-server`: dependency-free HTTP/1.1 implementation for the stream endpoint.
+- ANSI truecolor half-block encoder, fps-based pacer with drop accounting, and a
+  terminal guard for the alternate screen and cursor.
+- First measured playback numbers (local 30 fps clip, public HLS stream) in
+  `docs/PERFORMANCE.md`, including the pacer bug they uncovered.
 
 [Unreleased]: https://github.com/framefeed/framefeed/commits/main
