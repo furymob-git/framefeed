@@ -7,6 +7,11 @@ this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+### Changed
+
+- Licensed under MIT only (previously MIT OR Apache-2.0), with the license text in
+  `LICENSE` so GitHub detects it.
+
 ### Added
 
 - Repository bootstrap: workspace, lint policy, CI (fmt, clippy, test matrix, MSRV,

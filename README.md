@@ -4,7 +4,7 @@
 
 ![status](https://img.shields.io/badge/status-design%20phase-orange)
 [![CI](https://github.com/framefeed/framefeed/actions/workflows/ci.yml/badge.svg)](https://github.com/framefeed/framefeed/actions/workflows/ci.yml)
-[![license](https://img.shields.io/badge/license-MIT%20OR%20Apache--2.0-blue)](#license)
+[![license](https://img.shields.io/badge/license-MIT-blue)](#license)
 
 > **Status: pre-alpha / design phase.** This repository currently contains the
 > architecture, protocol research, performance budgets and roadmap. There is no
@@ -146,7 +146,6 @@ Security issues: [SECURITY.md](SECURITY.md), never a public issue.
 
 ## License
 
-Dual-licensed under either of [Apache License, Version 2.0](LICENSE-APACHE) or
-[MIT license](LICENSE-MIT), at your option. Unless you explicitly state otherwise,
+Released under the [MIT license](LICENSE). Unless you explicitly state otherwise,
 any contribution intentionally submitted for inclusion in this project shall be
-dual-licensed as above, without any additional terms or conditions.
+licensed under the same terms, without any additional conditions.
