@@ -83,6 +83,8 @@ remains interactive after exit; seeking is < 250 ms to first frame.
 - [x] Frame-paced ANSI/Kitty/Sixel output with cursor-home repaint (`curl -N` friendly)
 - [x] SSRF guard: scheme allowlist, private/loopback/link-local resolution checks,
       max concurrent streams (429 beyond it), read/write timeouts
+- [x] Container image (Dockerfile + ffmpeg) and a GHCR publish workflow; hosting is
+      left to the operator — see `docs/DEPLOY.md`
 - [ ] Per-IP rate limiting, max duration/bytes per stream, structured logs
 - [x] `GET /healthz`
 - [ ] Deployment notes for a small VPS

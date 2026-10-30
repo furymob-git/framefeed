@@ -16,6 +16,9 @@ this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ### Added
 
+- Container image for `framefeed serve` (multi-stage Dockerfile, ffmpeg runtime) and
+  a GitHub Actions workflow that publishes it to GHCR on `v*` tags, plus a
+  `videos/` folder for local media that stays out of git.
 - Sixel backend: 240-colour palette (6×6×6 cube + 24-step grey ramp), per-colour
   run-length encoding and band repaint. Windows Terminal 1.22+, foot, WezTerm,
   Konsole and iTerm2 now draw real pixels; `--backend auto` prefers Kitty, then

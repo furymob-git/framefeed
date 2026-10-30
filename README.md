@@ -136,6 +136,7 @@ crates/
   framefeed-decode/   # ffmpeg/ffprobe sidecar decoder
   framefeed-source/   # quality model, HLS master playlist, variant selection
   framefeed-server/   # /stream and /healthz over a hand-written HTTP/1.1 server
+videos/               # your own media, git-ignored (README kept)
 docs/
   ARCHITECTURE.md     # pipeline, threading, invariants, portability
   PROTOCOLS.md        # kitty vs sixel vs iTerm2 vs ANSI: costs and detection
@@ -154,6 +155,25 @@ M0 design & repo hygiene → M1 first light (Kitty, local file) → M2 universal
 (Sixel + ANSI + detection) → M3 streaming (HLS, quality) → M4 real player (audio,
 seek, controls) → M5 `serve` (curl mode) → M6 polish & packaging.
 Exit criteria for each: [docs/ROADMAP.md](docs/ROADMAP.md).
+
+## Deploy the server
+
+`framefeed serve` ships as a container image with ffmpeg baked in. Tag a release
+and the [container workflow](.github/workflows/deploy.yml) publishes
+`ghcr.io/<owner>/<repo>`:
+
+```console
+$ docker run --rm -p 8080:8080 ghcr.io/<owner>/<repo>:latest
+$ curl 'http://127.0.0.1:8080/healthz'
+ok
+```
+
+The image serves public `http(s)` sources only (`--allow-local` is deliberately
+not set), behind the same SSRF guard as the binary. Hosting, limits and the
+query parameters: [docs/DEPLOY.md](docs/DEPLOY.md).
+
+Drop your own clips in [`videos/`](videos/README.md) — the folder is git-ignored
+and `scripts/play.bat` picks the first one when no path is given.
 
 ## Contributing
 

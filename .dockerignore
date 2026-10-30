@@ -1,0 +1,12 @@
+target
+.git
+.github
+videos
+scripts
+docs
+coverage
+*.mp4
+*.webm
+*.mkv
+*.m3u8
+*.ts
