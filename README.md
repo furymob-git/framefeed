@@ -7,9 +7,9 @@
 [![license](https://img.shields.io/badge/license-MIT-blue)](#license)
 
 > **Status: alpha.** `framefeed play` decodes local files and network streams and
-> paints them with the Kitty graphics protocol or truecolor ANSI half-blocks;
-> `framefeed serve` streams terminal video over HTTP for `curl`. Audio, Sixel and
-> iTerm2 output are still missing — see [docs/ROADMAP.md](docs/ROADMAP.md).
+> paints them with the Kitty graphics protocol, Sixel or truecolor ANSI half-blocks;
+> `framefeed serve` streams terminal video over HTTP for `curl`. Audio and iTerm2
+> output are still missing — see [docs/ROADMAP.md](docs/ROADMAP.md).
 >
 > Requires `ffmpeg` and `ffprobe` on `PATH` (or `FRAMEFEED_FFMPEG` /
 > `FRAMEFEED_FFPROBE`).
@@ -34,7 +34,7 @@ cheapest source variant that still looks right at your terminal's actual size, e
 | `timg` | kitty / sixel / iterm2 | images + short video | no | basic | partially |
 | `notcurses` (`ncplayer`) | kitty / sixel | yes | no | no | C library |
 | `tplay`, ascii players | ANSI/ASCII | yes | yes | no | varies |
-| **framefeed** | kitty / sixel / iTerm2 / ANSI / ASCII | yes | yes | **first-class** | **yes** |
+| **framefeed** | kitty / sixel / ANSI (iTerm2, ASCII planned) | yes | yes | **first-class** | **yes** |
 
 The niche is narrow and deliberate: a small, boring, well-tested core with a
 protocol-pure encoder layer, benchmarked end-to-end, and a CLI that is pleasant to
@@ -52,7 +52,7 @@ Video means "can repaint fast enough to look like motion", not just "can show a 
 | Ghostty | Kitty graphics | ✅ | |
 | Konsole | Kitty graphics, Sixel | ✅ | |
 | iTerm2 | iTerm2 inline images, Sixel | ✅ | Full re-upload per frame; higher cost |
-| Windows Terminal ≥ 1.22 | Sixel | ✅ | Kitty protocol not supported |
+| Windows Terminal ≥ 1.22 | Sixel | ✅ | Kitty protocol not supported; framefeed uses Sixel here |
 | foot, mintty, Rio, Contour, mlterm | Sixel | ✅ | |
 | Alacritty | none | ❌ | ANSI/ASCII fallback only |
 | tmux / screen | passthrough | ⚠️ partial | `set -g allow-passthrough on`; Sixel needs tmux built with `--enable-sixel` |
@@ -63,9 +63,9 @@ Video means "can repaint fast enough to look like motion", not just "can show a 
 > Windows Terminal 1.22+ (Sixel). This is the primary development platform for the
 > project, so it is tested first, not last.
 >
-> framefeed currently drives **Kitty graphics** and **ANSI half-blocks**. Sixel and
-> iTerm2 encoders are planned (M2), so a Sixel-only terminal such as Windows Terminal
-> works today through the ANSI fallback.
+> framefeed drives **Kitty graphics**, **Sixel** and **ANSI half-blocks** today, so
+> Windows Terminal 1.22+ draws real pixels through Sixel (`auto` picks it). The
+> iTerm2 encoder is the only display backend still missing.
 
 ## Usage
 
@@ -73,16 +73,17 @@ Video means "can repaint fast enough to look like motion", not just "can show a 
 $ framefeed play ./clip.mp4
 $ framefeed play ./clip.webm --quality 480p --fps 30
 $ framefeed play https://example.com/master.m3u8 --quality 720p --stats
-$ framefeed play ./clip.mp4 --backend ansi --fit cover
+$ framefeed play ./clip.mp4 --backend sixel --fit cover
+$ framefeed play ./clip.mp4 --backend ansi
 $ framefeed doctor
 $ framefeed serve --allow-local --listen 127.0.0.1:8080
 # then, in any terminal:
 $ curl -N 'http://127.0.0.1:8080/stream?url=./clip.mp4&q=144p'
 ```
 
-`--backend auto` uses Kitty graphics when the terminal advertises it and falls
-back to ANSI half-blocks otherwise (Sixel and iTerm2 land in M2). Playback is
-video-only for now: audio and seeking are M4.
+`--backend auto` prefers Kitty graphics, then Sixel, then ANSI half-blocks; force
+one with `--backend kitty|sixel|ansi`. Playback is video-only for now: audio and
+seeking are M4.
 
 Quality is a *rendering* budget: `--quality 144p` caps the raster at 144 px tall, so
 the decoder, encoder and pipe all move fewer pixels. The library also picks the

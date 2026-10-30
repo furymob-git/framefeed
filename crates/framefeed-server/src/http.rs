@@ -9,7 +9,7 @@ use std::time::{Duration, Instant};
 
 use framefeed_core::{DEFAULT_CELL, Fit, Pace, Pacer, Size, Viewport, plan_render};
 use framefeed_decode::{Decoder, FfmpegDecoder, OutputSize, probe};
-use framefeed_proto::{AnsiEncoder, KittyEncoder, KittyOptions};
+use framefeed_proto::{AnsiEncoder, KittyEncoder, KittyOptions, SixelEncoder};
 
 use crate::params::{BackendChoice, parse_query};
 use crate::source_guard::validate_source;
@@ -149,6 +149,7 @@ fn stream_video(stream: &mut TcpStream, query: &str, config: &ServerConfig) -> i
 
     let mut encoder = match params.backend {
         BackendChoice::Ansi => Encoder::Ansi(AnsiEncoder::new()),
+        BackendChoice::Sixel => Encoder::Sixel(Box::new(SixelEncoder::new())),
         BackendChoice::Kitty => match KittyEncoder::new(KittyOptions::default()) {
             Ok(encoder) => Encoder::Kitty(encoder),
             Err(error) => {
@@ -191,6 +192,7 @@ fn stream_video(stream: &mut TcpStream, query: &str, config: &ServerConfig) -> i
         buffer.clear();
         match &mut encoder {
             Encoder::Ansi(encoder) => encoder.encode_frame(frame, &mut buffer),
+            Encoder::Sixel(encoder) => encoder.encode_frame(frame, &mut buffer),
             Encoder::Kitty(encoder) => {
                 if let Err(error) = encoder.encode_frame(frame, cols, rows, &mut buffer) {
                     eprintln!("framefeed serve: encode error: {error}");
@@ -212,6 +214,7 @@ fn stream_video(stream: &mut TcpStream, query: &str, config: &ServerConfig) -> i
 enum Encoder {
     Ansi(AnsiEncoder),
     Kitty(KittyEncoder),
+    Sixel(Box<SixelEncoder>),
 }
 
 fn cells(pixels: u32, cell_px: u16, fallback: u16) -> u16 {

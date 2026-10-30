@@ -16,6 +16,11 @@ this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ### Added
 
+- Sixel backend: 240-colour palette (6×6×6 cube + 24-step grey ramp), per-colour
+  run-length encoding and band repaint. Windows Terminal 1.22+, foot, WezTerm,
+  Konsole and iTerm2 now draw real pixels; `--backend auto` prefers Kitty, then
+  Sixel, then ANSI, and `serve` accepts `backend=sixel`.
+
 - Repository bootstrap: workspace, lint policy, CI (fmt, clippy, test matrix, MSRV,
   `cargo-deny`, rustdoc), contribution and security policies, issue/PR templates.
 - Architecture documentation: pipeline and threading model, protocol comparison

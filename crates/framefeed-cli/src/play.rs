@@ -9,7 +9,7 @@ use std::time::Instant;
 use framefeed_core::{Fit, Pace, Pacer, Raster, Size, plan_render};
 use framefeed_decode::{Decoder, FfmpegDecoder, OutputSize, probe};
 use framefeed_proto::{
-    AnsiEncoder, Backend, Hints, KittyEncoder, KittyOptions, TerminalGuard, detect,
+    AnsiEncoder, Backend, Hints, KittyEncoder, KittyOptions, SixelEncoder, TerminalGuard, detect,
     viewport_from_env,
 };
 use framefeed_source::Quality;
@@ -18,6 +18,7 @@ use framefeed_source::Quality;
 enum BackendChoice {
     Auto,
     Kitty,
+    Sixel,
     Ansi,
 }
 
@@ -26,9 +27,10 @@ impl BackendChoice {
         match value.trim().to_ascii_lowercase().as_str() {
             "auto" => Ok(Self::Auto),
             "kitty" => Ok(Self::Kitty),
+            "sixel" => Ok(Self::Sixel),
             "ansi" => Ok(Self::Ansi),
             other => Err(format!(
-                "unknown backend `{other}`; use auto, kitty or ansi (sixel/iterm2 are not implemented yet)"
+                "unknown backend `{other}`; use auto, kitty, sixel or ansi (iterm2 is not implemented yet)"
             )),
         }
     }
@@ -47,6 +49,7 @@ struct PlayOptions {
 enum Encoder {
     Ansi(AnsiEncoder),
     Kitty(KittyEncoder),
+    Sixel(Box<SixelEncoder>),
 }
 
 impl Encoder {
@@ -65,6 +68,10 @@ impl Encoder {
             Self::Kitty(encoder) => encoder
                 .encode_frame(raster, cols, rows, out)
                 .map_err(|error| error.to_string()),
+            Self::Sixel(encoder) => {
+                encoder.encode_frame(raster, out);
+                Ok(())
+            }
         }
     }
 }
@@ -125,6 +132,7 @@ fn play(options: PlayOptions) -> Result<(), String> {
         Backend::Kitty => Encoder::Kitty(
             KittyEncoder::new(KittyOptions::default()).map_err(|error| error.to_string())?,
         ),
+        Backend::Sixel => Encoder::Sixel(Box::new(SixelEncoder::new())),
         _ => Encoder::Ansi(AnsiEncoder::new()),
     };
 
@@ -195,9 +203,11 @@ fn play(options: PlayOptions) -> Result<(), String> {
 fn resolve_backend(choice: BackendChoice) -> Backend {
     match choice {
         BackendChoice::Kitty => Backend::Kitty,
+        BackendChoice::Sixel => Backend::Sixel,
         BackendChoice::Ansi => Backend::Ansi,
         BackendChoice::Auto => match detect(&Hints::from_env()).backend {
             Backend::Kitty => Backend::Kitty,
+            Backend::Sixel => Backend::Sixel,
             other => {
                 if other != Backend::Ansi {
                     eprintln!(
@@ -350,7 +360,7 @@ mod tests {
         assert!(parse(args(&["./a", "--nope"])).is_err());
         assert!(parse(args(&["./a", "--fps"])).is_err());
         assert!(parse(args(&["./a", "--fps=0"])).is_err());
-        assert!(parse(args(&["./a", "--backend=sixel"])).is_err());
+        assert!(parse(args(&["./a", "--backend=iterm2"])).is_err());
         assert!(parse(args(&["./a", "--quality=hd"])).is_err());
     }
 

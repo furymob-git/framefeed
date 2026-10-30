@@ -41,7 +41,8 @@ measured; see `docs/PERFORMANCE.md`.
 
 ## M2 — Universal (sixel, ANSI, detection)
 
-- [ ] Sixel encoder with 240-color cube + RLE (adaptive palette behind a flag)
+- [x] Sixel encoder with 240-color cube + grey ramp + per-colour RLE
+- [ ] Adaptive Sixel palette and dithering (behind `--dither adaptive`)
 - [x] ANSI half-block backend
 - [ ] ASCII mode (luminance ramp)
 - [ ] Capability detection (hints → probes → fallback) with timeouts
@@ -78,7 +79,7 @@ remains interactive after exit; seeking is < 250 ms to first frame.
 ## M5 — `serve` (curl mode)
 
 - [x] `framefeed serve`: `GET /stream?url=<src>&q=<quality>&backend=<name>`
-- [x] Frame-paced ANSI/kitty output with cursor-home repaint (`curl -N` friendly)
+- [x] Frame-paced ANSI/Kitty/Sixel output with cursor-home repaint (`curl -N` friendly)
 - [x] SSRF guard: scheme allowlist, private/loopback/link-local resolution checks,
       max concurrent streams (429 beyond it), read/write timeouts
 - [ ] Per-IP rate limiting, max duration/bytes per stream, structured logs

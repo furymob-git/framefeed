@@ -23,6 +23,7 @@ pub fn run(_args: Vec<String>) -> ExitCode {
     print_env("WT_SESSION", hints.windows_terminal_session.as_deref());
 
     println!("\nBackend   : {} ({})", detection.backend, detection.reason);
+    println!("Backends  : kitty, sixel, ansi (iterm2 planned)");
     println!(
         "Budget    : up to {} px tall at {} fps",
         budget.max_raster_height, budget.max_fps
@@ -52,6 +53,7 @@ pub fn run(_args: Vec<String>) -> ExitCode {
     println!(
         "\nHint-based detection only: active probing (kitty graphics query, sixel DA,\ncell pixel size via CSI 16 t) lands in M2."
     );
+    println!("Windows Terminal 1.22+ is detected as sixel: it draws real pixels, not half-blocks.");
     ExitCode::SUCCESS
 }
 

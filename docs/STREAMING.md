@@ -76,7 +76,7 @@ $ framefeed serve --listen 127.0.0.1:8080 --max-streams 4
 $ curl -N 'http://127.0.0.1:8080/stream?url=./clip.mp4&q=144p&backend=ansi'
 ```
 
-Response: an endless `text/plain` (or `application/octet-stream` for sixel) escape
+Response: an endless `text/plain` escape
 stream. Each frame is `CSI H` (cursor home) + encoded frame; the client terminal paints
 at whatever rate bytes arrive. No HTML, no MJPEG, no JavaScript — it must work with
 plain `curl` piping to a tty.
@@ -87,7 +87,7 @@ Query parameters:
 |---|---|---|
 | `url` | path or http(s) URL | required |
 | `q` | `144p…1080p`, `auto` | `auto` |
-| `backend` | `ansi`, `kitty` | `ansi` |
+| `backend` | `ansi`, `kitty`, `sixel` | `ansi` |
 | `fps` | 1–60 | backend-dependent |
 | `cols`, `rows` | integers | client-provided via query, else 80×24 |
 

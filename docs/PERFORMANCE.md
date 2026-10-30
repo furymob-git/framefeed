@@ -109,6 +109,8 @@ and the public Mux HLS test stream (Big Buck Bunny) over HTTPS.
 |---|---|---|---|---|---|---|
 | ANSI, `--quality 240p --fps 24` | 320×240 | 240 | 0 | 10.02 s | 24.0 | 188 KiB |
 | Kitty, `--quality 360p --fps 30` | 480×360 | 240 | 0 | 8.03 s | 29.9 | 29 KiB (zlib) |
+| Sixel, `--quality 360p --fps 30` | 480×360 | 240 | 0 | 8.08 s | 29.7 | 29 KiB |
+| Sixel, `--quality 240p --fps 24` | 320×240 | 240 | 0 | 10.02 s | 23.9 | 18 KiB |
 | ANSI, synthetic 10 fps cap | 320×240 | 10 | 0 | 0.95 s | 10.5 | 378 KiB |
 | HLS (Mux), 8 s cap, 10 fps | 427×240 | 67 | — | 8 s | — | ~290 KiB |
 
@@ -118,8 +120,20 @@ What this already tells us:
   local file.
 - Kitty + zlib is **6.5× cheaper per frame** than ANSI at a comparable size
   (29 KiB vs 188 KiB), which is the whole argument for the Kitty backend.
+- Sixel matches Kitty's byte cost at 480×360 (29 KiB/frame, 29.7 fps, zero drops) and
+  is **13× cheaper than ANSI at the same raster** (29 KiB vs 394 KiB). It is also the
+  only pixel backend that works on Windows Terminal, so the cheap path is no longer
+  Kitty-only.
+- `serve` streams Sixel identically (`backend=sixel`): the curl check pulled 1.5 MiB
+  in 4 s at 240p / 24 fps.
 - The synthetic test pattern is a worst case for ANSI (~378 KiB/frame): noise does
   not compress and produces maximal SGR churn.
+
+> The Sixel round-trip test caught a real encoder bug before any measurement: runs of
+> two or three identical columns emitted a single character, so every band was
+> silently truncated and the picture would have come out streaked. The test decodes
+> the encoder's own output back to palette indices and compares against the source;
+> fixed, then measured above.
 
 > A first run reported 47 fps against a 24 fps cap. That measurement exposed a pacer
 > bug: the wait path did not reserve the slot for the frame it was delaying, so every
@@ -127,5 +141,5 @@ What this already tells us:
 > covered by a regression test, and re-measured above.
 
 Still to measure: the 60 fps target at 120×34 cells with a real terminal attached,
-Sixel budgets, startup latency and memory. Those are the M1 exit criteria the
+Sixel at 800×480, startup latency and memory. Those are the M1 exit criteria the
 benchmark suite (criterion + hyperfine) will track.

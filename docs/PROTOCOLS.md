@@ -69,11 +69,15 @@ Sixel is a palette-indexed bitmap format: a header (`ESC P q` with raster attrib
 then six-row bands of characters encoding 6 vertical pixels each, with RLE `!n`.
 
 - Requires quantization to a palette per frame; dithering improves gradients at a CPU
-  cost. Plan: 6×6×6 color cube + grayscale ramp (240 colors) as the fast path, adaptive
-  palette with median cut as `--dither adaptive` (M6).
-- No in-place updates: every frame is a full repaint, so cap the raster (default
-  budget: 960 px wide, 30 fps).
+  cost. **Implemented:** fixed 240-entry palette (6×6×6 cube + 24-step grey ramp,
+  near-neutral pixels routed to the ramp), per-colour run-length encoding. Adaptive
+  palette with median cut and dithering are `--dither adaptive` work for M6.
+- No in-place updates: every frame is a full repaint, so cap the raster (backend
+  budget: 480 px tall, 30 fps).
 - Windows Terminal support starts at 1.22; tmux needs `--enable-sixel` at build time.
+- Encode cost is the wall, not bytes: a band is painted one colour at a time, so the
+  work grows with the number of colours present per band. That is why the palette is
+  fixed and quantization is a lookup instead of a nearest-colour search.
 
 ## 4. iTerm2 inline images
 

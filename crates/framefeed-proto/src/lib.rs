@@ -11,10 +11,12 @@ mod ansi;
 mod budget;
 mod detect;
 mod kitty;
+mod sixel;
 mod terminal;
 
 pub use ansi::AnsiEncoder;
 pub use budget::Budget;
 pub use detect::{Backend, Detection, Hints, Multiplexer, detect};
 pub use kitty::{Compression, EncodeError, KittyEncoder, KittyOptions};
+pub use sixel::SixelEncoder;
 pub use terminal::{TerminalGuard, stdout_is_tty, viewport_from_env};

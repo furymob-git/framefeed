@@ -37,7 +37,7 @@ Examples:
   framefeed serve --allow-local
   curl -N 'http://127.0.0.1:8080/stream?url=./clip.mp4&q=144p'
 
-Audio, sixel and iTerm2 output are not implemented yet — see docs/ROADMAP.md.
+Audio and iTerm2 output are not implemented yet — see docs/ROADMAP.md.
 ";
 
 fn main() -> ExitCode {

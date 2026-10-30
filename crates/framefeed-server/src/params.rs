@@ -14,6 +14,8 @@ pub enum BackendChoice {
     Ansi,
     /// Kitty graphics APC stream; the client must be a kitty-protocol terminal.
     Kitty,
+    /// Sixel stream; Windows Terminal 1.22+, foot, WezTerm, Konsole, iTerm2.
+    Sixel,
 }
 
 impl BackendChoice {
@@ -23,6 +25,7 @@ impl BackendChoice {
         match value.trim().to_ascii_lowercase().as_str() {
             "ansi" => Some(Self::Ansi),
             "kitty" => Some(Self::Kitty),
+            "sixel" => Some(Self::Sixel),
             _ => None,
         }
     }
@@ -33,6 +36,7 @@ impl BackendChoice {
         match self {
             Self::Ansi => "ansi",
             Self::Kitty => "kitty",
+            Self::Sixel => "sixel",
         }
     }
 
@@ -42,6 +46,7 @@ impl BackendChoice {
         match self {
             Self::Ansi => Backend::Ansi.budget(),
             Self::Kitty => Backend::Kitty.budget(),
+            Self::Sixel => Backend::Sixel.budget(),
         }
     }
 }
@@ -90,7 +95,7 @@ impl fmt::Display for ParamError {
         match self {
             Self::MissingUrl => f.write_str("missing `url` parameter"),
             Self::UnknownBackend(value) => {
-                write!(f, "unknown backend `{value}`; use ansi or kitty")
+                write!(f, "unknown backend `{value}`; use ansi, kitty or sixel")
             }
             Self::Quality(error) => write!(f, "{error}"),
             Self::UnknownFit(value) => {
@@ -255,7 +260,7 @@ mod tests {
         assert_eq!(parse_query("q=360p"), Err(ParamError::MissingUrl));
         assert_eq!(parse_query("url="), Err(ParamError::MissingUrl));
         assert!(matches!(
-            parse_query("url=x&backend=sixel"),
+            parse_query("url=x&backend=iterm2"),
             Err(ParamError::UnknownBackend(_))
         ));
         assert!(matches!(
@@ -284,7 +289,9 @@ mod tests {
     fn backend_names_are_stable() {
         assert_eq!(BackendChoice::Ansi.name(), "ansi");
         assert_eq!(BackendChoice::Kitty.name(), "kitty");
+        assert_eq!(BackendChoice::Sixel.name(), "sixel");
         assert_eq!(BackendChoice::parse("KITTY"), Some(BackendChoice::Kitty));
-        assert_eq!(BackendChoice::parse("sixel"), None);
+        assert_eq!(BackendChoice::parse("sixel"), Some(BackendChoice::Sixel));
+        assert_eq!(BackendChoice::parse("iterm2"), None);
     }
 }
