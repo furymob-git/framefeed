@@ -16,6 +16,15 @@ this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ### Added
 
+- `GET /<name>` on `framefeed serve`: bundled clips are one curl away
+  (`curl -N http://host/sintel?q=480p&backend=sixel`). A new `--media <dir>` flag
+  (default `videos/demo` in a checkout, `/data/videos` in the image) exposes a flat
+  library where names are bare stems (`[A-Za-z0-9_-]` only), so path traversal is
+  impossible and `--allow-local` is still unnecessary. `GET /` lists the clips.
+- Six curated CC-BY Blender Open Movie excerpts (Big Buck Bunny, Sintel, Elephants
+  Dream, Caminandes 1 & 2, Sprite Fright) in `videos/demo/`, trimmed to 14–18 s,
+  ≤ 720 px, silent, with attribution in `videos/demo/CREDITS.md`. Copyrighted memes
+  are deliberately not bundled; the doc shows how to serve your own copies.
 - Container image for `framefeed serve` (multi-stage Dockerfile, ffmpeg runtime) and
   a GitHub Actions workflow that publishes it to GHCR on `v*` tags, plus a
   `videos/` folder for local media that stays out of git.

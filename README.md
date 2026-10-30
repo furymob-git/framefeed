@@ -81,7 +81,11 @@ $ framefeed doctor
 $ framefeed serve --allow-local --listen 127.0.0.1:8080
 # then, in any terminal:
 $ curl -N 'http://127.0.0.1:8080/stream?url=./clip.mp4&q=144p'
+$ curl -N 'http://127.0.0.1:8080/sintel?q=480p&backend=sixel'   # bundled clip
 ```
+
+`GET /` lists the bundled clips; `GET /<name>` plays one and takes the same optional
+parameters (`q`, `backend`, `fps`, `cols`, `rows`, `fit`).
 
 `--backend auto` prefers Kitty graphics, then Sixel, then ANSI half-blocks; force
 one with `--backend kitty|sixel|ansi`. `--quality auto` (the default) sizes the
@@ -136,7 +140,9 @@ crates/
   framefeed-decode/   # ffmpeg/ffprobe sidecar decoder
   framefeed-source/   # quality model, HLS master playlist, variant selection
   framefeed-server/   # /stream and /healthz over a hand-written HTTP/1.1 server
-videos/               # your own media, git-ignored (README kept)
+videos/
+  demo/               # committed, CC-BY demo clips served at /<name>
+  ...                 # your own media, git-ignored (README kept)
 docs/
   ARCHITECTURE.md     # pipeline, threading, invariants, portability
   PROTOCOLS.md        # kitty vs sixel vs iTerm2 vs ANSI: costs and detection
@@ -166,14 +172,20 @@ and the [container workflow](.github/workflows/deploy.yml) publishes
 $ docker run --rm -p 8080:8080 ghcr.io/<owner>/<repo>:latest
 $ curl 'http://127.0.0.1:8080/healthz'
 ok
+$ curl -N 'http://127.0.0.1:8080/big-buck-bunny?q=480p&backend=sixel'
 ```
 
-The image serves public `http(s)` sources only (`--allow-local` is deliberately
-not set), behind the same SSRF guard as the binary. Hosting, limits and the
-query parameters: [docs/DEPLOY.md](docs/DEPLOY.md).
+The image serves public `http(s)` sources (`url=` on `/stream`) **and** six CC-BY
+Blender Open Movie excerpts bundled at [`videos/demo/`](videos/demo/CREDITS.md),
+reachable by bare name — `curl -N http://127.0.0.1:8080/sintel`, with `GET /` listing
+them.
 
-Drop your own clips in [`videos/`](videos/README.md) — the folder is git-ignored
-and `scripts/play.bat` picks the first one when no path is given.
+Named clips are resolved inside one directory (no paths, no traversal), so
+`--media` stays enabled without `--allow-local`, behind the same SSRF guard as the
+binary. Hosting, limits and every query parameter: [docs/DEPLOY.md](docs/DEPLOY.md).
+
+Drop your own clips in [`videos/`](videos/README.md) — personal media there is
+git-ignored, and `scripts/play.bat` picks the first one when no path is given.
 
 ## Contributing
 

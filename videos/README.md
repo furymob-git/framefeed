@@ -1,16 +1,20 @@
 # videos/
 
-Drop your own videos here. **Nothing in this folder is committed**: every file is
-ignored except this README and `.gitignore`, so local media never ends up in git
-history.
+Two things live here:
 
-Supported containers are whatever the bundled `ffmpeg` can decode: `.mp4`,
-`.webm`, `.mkv`, `.mov`, `.m4v`, `.avi`, …
+- **`demo/`** — a small, curated set of CC-BY Blender Open Movie excerpts that *are*
+  committed (see [demo/CREDITS.md](demo/CREDITS.md)). They ship inside the Docker
+  image and are the clips served by `GET /<name>`.
+- **everything else** — your own media. **Never committed**: git ignores it, so your
+  files stay out of history and out of the published image.
 
-## Play them
+Supported containers are whatever the bundled `ffmpeg` can decode: `.mp4`, `.webm`,
+`.mkv`, `.mov`, `.m4v`, `.ogv`, …
+
+## Play them locally
 
 ```bat
-rem scripts automatically pick the first video in this folder
+rem scripts pick the first video in videos/ when no path is given
 scripts\play.bat
 
 rem or name one explicitly
@@ -21,16 +25,15 @@ scripts\play.bat videos\mon-film.mp4
 ./scripts/play.sh videos/mon-film.mp4
 ```
 
-The first `*.mp4`, `*.webm` or `*.mkv` found is used when no path is given. Headless test clips stay in `target/fixtures/` (also git-ignored), so
-they do not mix with your own media.
-
-## Served over HTTP
+## Serve them over HTTP
 
 ```bat
+rem serve the whole folder; then a clip is just /<file name>
 scripts\serve.bat
-scripts\play-server.bat videos\mon-film.mp4
+curl -N "http://127.0.0.1:8080/mon-film"
 ```
 
-The server runs with `--allow-local` in the helper scripts, so it can read paths
-inside this folder. Never enable that flag on a public deployment: there, pass
-`url=` with an `http(s)` source instead (see [docs/DEPLOY.md](../docs/DEPLOY.md)).
+The helper scripts pass `--allow-local` so `?url=<path>` works; `--media` (what
+`/<name>` uses) never accepts a path, only a bare name resolved inside the folder.
+Never enable `--allow-local` on a public deployment: there, pass `url=` with an
+`http(s)` source (see [docs/DEPLOY.md](../docs/DEPLOY.md)).

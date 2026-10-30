@@ -1,4 +1,7 @@
-# Personal media lives here and is never committed.
+# Personal media lives here and is never committed: every file is ignored...
+# except the curated demo library, which is licensed media shipped with the image.
 *
 !.gitignore
 !README.md
+!demo/
+!demo/**

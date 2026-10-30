@@ -112,12 +112,31 @@ impl Error for ParamError {}
 ///
 /// Defaults: `q=auto`, `backend=ansi`, `fps=30`, `cols=80`, `rows=24`, `fit=contain`.
 ///
+/// `backend=ansi` is the default because it is the only backend that cannot corrupt
+/// a terminal that lacks the protocol; ask for `sixel` or `kitty` explicitly.
+///
 /// # Errors
 ///
 /// Returns [`ParamError`] for a missing URL, an unsupported backend/fit, an
 /// invalid quality, or a non-numeric value.
 pub fn parse_query(query: &str) -> Result<StreamParams, ParamError> {
-    let mut source = None;
+    parse_stream_query(query, None)
+}
+
+/// Parses query parameters for a request whose source may come from the path.
+///
+/// `default_source` is used when the query has no `url` (the `/<name>` media
+/// route); an explicit `url` still wins.
+///
+/// # Errors
+///
+/// Same as [`parse_query`]: a missing source, unsupported backend/fit, invalid
+/// quality or non-numeric value.
+pub fn parse_stream_query(
+    query: &str,
+    default_source: Option<String>,
+) -> Result<StreamParams, ParamError> {
+    let mut source = default_source;
     let mut quality = Quality::Auto;
     let mut backend = BackendChoice::Ansi;
     let mut fps = 30u8;

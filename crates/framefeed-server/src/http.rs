@@ -1,4 +1,4 @@
-//! Minimal HTTP/1.1 server for `/stream` and `/healthz`.
+//! Minimal HTTP/1.1 server for `/<name>`, `/stream` and `/healthz`.
 
 use std::io::{self, Read, Write};
 use std::net::{TcpListener, TcpStream};
@@ -11,7 +11,8 @@ use framefeed_core::{DEFAULT_CELL, Fit, Pace, Pacer, Size, Viewport, plan_render
 use framefeed_decode::{Decoder, FfmpegDecoder, OutputSize, probe};
 use framefeed_proto::{AnsiEncoder, KittyEncoder, KittyOptions, SixelEncoder};
 
-use crate::params::{BackendChoice, parse_query};
+use crate::media::Library;
+use crate::params::{BackendChoice, StreamParams, parse_query, parse_stream_query};
 use crate::source_guard::validate_source;
 
 const MAX_HEAD_BYTES: usize = 16 * 1024;
@@ -23,6 +24,8 @@ pub struct ServerConfig {
     pub allow_local: bool,
     /// Maximum concurrent streams before answering 429.
     pub max_streams: usize,
+    /// Bundled clips served at `/<name>`; `None` disables that route.
+    pub media: Option<Library>,
 }
 
 impl Default for ServerConfig {
@@ -30,6 +33,7 @@ impl Default for ServerConfig {
         Self {
             allow_local: false,
             max_streams: 4,
+            media: None,
         }
     }
 }
@@ -83,20 +87,37 @@ pub fn handle_connection(
     let (path, query) = target.split_once('?').unwrap_or((target, ""));
     match path {
         "/healthz" => respond_text(&mut stream, 200, "OK", "ok\n"),
+        "/" => respond_index(&mut stream, config),
         "/stream" => {
-            if active.load(Ordering::SeqCst) >= config.max_streams {
-                return respond_text(
-                    &mut stream,
-                    429,
-                    "Too Many Requests",
-                    "too many concurrent streams\n",
-                );
+            let params = match parse_query(query) {
+                Ok(params) => params,
+                Err(error) => {
+                    return respond_text(&mut stream, 400, "Bad Request", &format!("{error}\n"));
+                }
+            };
+            if let Err(error) = validate_source(&params.source, config.allow_local) {
+                return respond_text(&mut stream, 403, "Forbidden", &format!("{error}\n"));
             }
-            active.fetch_add(1, Ordering::SeqCst);
-            let _lease = Lease(active);
-            stream_video(&mut stream, query, config)
+            stream_with_lease(&mut stream, config, active, params)
         }
-        _ => respond_text(&mut stream, 404, "Not Found", "try /stream or /healthz\n"),
+        other => {
+            let Some(file) = config
+                .media
+                .as_ref()
+                .and_then(|library| library.resolve(other))
+            else {
+                return respond_not_found(&mut stream, config);
+            };
+            // A resolved library path is our own file, not user-supplied input, so it
+            // skips the SSRF guard: the resolver already confined it to the directory.
+            let params = match parse_stream_query(query, Some(file.display().to_string())) {
+                Ok(params) => params,
+                Err(error) => {
+                    return respond_text(&mut stream, 400, "Bad Request", &format!("{error}\n"));
+                }
+            };
+            stream_with_lease(&mut stream, config, active, params)
+        }
     }
 }
 
@@ -108,15 +129,26 @@ impl Drop for Lease<'_> {
     }
 }
 
-fn stream_video(stream: &mut TcpStream, query: &str, config: &ServerConfig) -> io::Result<()> {
-    let params = match parse_query(query) {
-        Ok(params) => params,
-        Err(error) => return respond_text(stream, 400, "Bad Request", &format!("{error}\n")),
-    };
-    if let Err(error) = validate_source(&params.source, config.allow_local) {
-        return respond_text(stream, 403, "Forbidden", &format!("{error}\n"));
+fn stream_with_lease(
+    stream: &mut TcpStream,
+    config: &ServerConfig,
+    active: &AtomicUsize,
+    params: StreamParams,
+) -> io::Result<()> {
+    if active.load(Ordering::SeqCst) >= config.max_streams {
+        return respond_text(
+            stream,
+            429,
+            "Too Many Requests",
+            "too many concurrent streams\n",
+        );
     }
+    active.fetch_add(1, Ordering::SeqCst);
+    let _lease = Lease(active);
+    stream_video(stream, params)
+}
 
+fn stream_video(stream: &mut TcpStream, params: StreamParams) -> io::Result<()> {
     let Some(viewport) = Viewport::new(params.cols, params.rows, DEFAULT_CELL) else {
         return respond_text(stream, 400, "Bad Request", "invalid viewport\n");
     };
@@ -225,6 +257,48 @@ fn cells(pixels: u32, cell_px: u16, fallback: u16) -> u16 {
     u16::try_from(pixels.div_ceil(cell_px)).unwrap_or(fallback)
 }
 
+const PARAMS_HELP: &str = "parameters: q=144p|240p|360p|480p|720p|1080p|auto, \
+backend=ansi|sixel|kitty, fps=1-60, cols=<20-300>, rows=<5-100>, fit=contain|cover|stretch\n";
+
+fn respond_index(stream: &mut TcpStream, config: &ServerConfig) -> io::Result<()> {
+    let mut body = String::from("framefeed - video in your terminal\n\n");
+    body.push_str("  GET /<name>        stream a bundled clip (no argument needed)\n");
+    body.push_str("  GET /stream?url=   relay any http(s) source\n");
+    body.push_str("  GET /healthz       liveness probe\n\n");
+    match &config.media {
+        Some(library) => {
+            let names = library.names();
+            if names.is_empty() {
+                body.push_str("clips: none found in the library directory\n");
+            } else {
+                body.push_str("clips:\n");
+                for name in names {
+                    body.push_str(&format!("  /{name}\n"));
+                }
+            }
+        }
+        None => body.push_str("clips: library disabled (start serve with --media <dir>)\n"),
+    }
+    body.push('\n');
+    body.push_str(PARAMS_HELP);
+    body.push_str("\nexample: curl -N http://127.0.0.1:8080/big-buck-bunny?q=480p&backend=sixel\n");
+    respond_text(stream, 200, "OK", &body)
+}
+
+fn respond_not_found(stream: &mut TcpStream, config: &ServerConfig) -> io::Result<()> {
+    let mut body = String::from("no such clip\n\n");
+    if let Some(library) = &config.media {
+        let names = library.names();
+        if !names.is_empty() {
+            body.push_str("available: ");
+            body.push_str(&names.join(", "));
+            body.push('\n');
+        }
+    }
+    body.push_str("listing and parameters: /  |  arbitrary sources: /stream?url=\n");
+    respond_text(stream, 404, "Not Found", &body)
+}
+
 fn read_head(stream: &mut TcpStream) -> io::Result<String> {
     let mut buffer = Vec::new();
     let mut chunk = [0u8; 1024];
@@ -263,16 +337,19 @@ fn respond_text(stream: &mut TcpStream, status: u16, reason: &str, body: &str) -
 #[cfg(test)]
 mod tests {
     use super::{ServerConfig, handle_connection};
+    use crate::media::Library;
     use std::io::{Read, Write};
     use std::net::{TcpListener, TcpStream};
+    use std::path::PathBuf;
     use std::sync::atomic::AtomicUsize;
+    use std::time::{SystemTime, UNIX_EPOCH};
 
-    fn request(path: &str) -> (String, String) {
+    fn with_config(config: ServerConfig, path: &str) -> (String, String) {
         let listener = TcpListener::bind("127.0.0.1:0").unwrap();
         let address = listener.local_addr().unwrap();
         let server = std::thread::spawn(move || {
             let (stream, _) = listener.accept().unwrap();
-            handle_connection(stream, &ServerConfig::default(), &AtomicUsize::new(0)).unwrap();
+            handle_connection(stream, &config, &AtomicUsize::new(0)).unwrap();
         });
         let mut client = TcpStream::connect(address).unwrap();
         write!(client, "GET {path} HTTP/1.1\r\nHost: localhost\r\n\r\n").unwrap();
@@ -283,11 +360,62 @@ mod tests {
         (head.to_string(), body.to_string())
     }
 
+    fn request(path: &str) -> (String, String) {
+        with_config(ServerConfig::default(), path)
+    }
+
+    fn library_dir(files: &[&str]) -> PathBuf {
+        let unique = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        let root = std::env::temp_dir().join(format!("framefeed-http-{unique}"));
+        std::fs::create_dir_all(&root).unwrap();
+        for name in files {
+            std::fs::write(root.join(name), b"not really video").unwrap();
+        }
+        root
+    }
+
     #[test]
     fn health_endpoint_answers_200() {
         let (head, body) = request("/healthz");
         assert!(head.starts_with("HTTP/1.1 200 OK"), "{head}");
         assert_eq!(body, "ok\n");
+    }
+
+    #[test]
+    fn index_lists_clips_and_parameters() {
+        let root = library_dir(&["clip.mp4"]);
+        let (head, body) = with_config(
+            ServerConfig {
+                media: Some(Library::new(&root)),
+                ..ServerConfig::default()
+            },
+            "/",
+        );
+        assert!(head.starts_with("HTTP/1.1 200 OK"), "{head}");
+        assert!(body.contains("/clip"), "{body}");
+        assert!(body.contains("backend=sixel"), "{body}");
+        std::fs::remove_dir_all(&root).unwrap();
+    }
+
+    #[test]
+    fn media_route_rejects_unknown_and_traversal_names() {
+        let root = library_dir(&["clip.mp4"]);
+        let config = || ServerConfig {
+            media: Some(Library::new(&root)),
+            ..ServerConfig::default()
+        };
+        let (head, body) = with_config(config(), "/nope");
+        assert!(head.starts_with("HTTP/1.1 404"), "{head}");
+        assert!(body.contains("available: clip"), "{body}");
+        assert!(
+            with_config(config(), "/../clip.mp4")
+                .0
+                .starts_with("HTTP/1.1 404")
+        );
+        std::fs::remove_dir_all(&root).unwrap();
     }
 
     #[test]

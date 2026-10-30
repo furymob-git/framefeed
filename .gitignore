@@ -12,6 +12,9 @@
 *.ts
 !crates/*/tests/fixtures/**/*.mp4
 !crates/*/tests/fixtures/**/*.webm
+# Curated, licensed demo clips shipped with the server image.
+!videos/demo/*.mp4
+!videos/demo/*.webm
 
 # Coverage & profiling
 *.profraw
