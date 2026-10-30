@@ -72,12 +72,19 @@ then six-row bands of characters encoding 6 vertical pixels each, with RLE `!n`.
   cost. **Implemented:** fixed 240-entry palette (6×6×6 cube + 24-step grey ramp,
   near-neutral pixels routed to the ramp), per-colour run-length encoding. Adaptive
   palette with median cut and dithering are `--dither adaptive` work for M6.
-- No in-place updates: every frame is a full repaint, so cap the raster (backend
-  budget: 480 px tall, 30 fps).
+- No in-place updates: every frame is a full repaint. The backend budget is 1080 px
+  tall at 30 fps; smaller rasters are cheaper, a full-window 1440×1080 raster
+  measured 24.7 fps on the reference machine (see `PERFORMANCE.md`).
 - Windows Terminal support starts at 1.22; tmux needs `--enable-sixel` at build time.
 - Encode cost is the wall, not bytes: a band is painted one colour at a time, so the
   work grows with the number of colours present per band. That is why the palette is
-  fixed and quantization is a lookup instead of a nearest-colour search.
+  fixed and quantization is a lookup instead of a nearest-colour search. Columns that
+  do not contain a colour are skipped, which is what makes sparse frames cheap.
+- **Windows Terminal specifics:** it stores Sixel images on a fixed 10×20 pixel grid
+  and stretches each grid cell to the font's cell size, and it answers `CSI 16 t`
+  with 10×20. Planning the raster in 8×16 cells (or capping it short of the window)
+  makes it resample and look blocky, so framefeed uses 10×20 cells for Sixel on
+  Windows Terminal and lets `--quality auto` reach the window height.
 
 ## 4. iTerm2 inline images
 

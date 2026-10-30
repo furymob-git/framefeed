@@ -2,12 +2,12 @@
 
 use std::process::ExitCode;
 
-use framefeed_proto::{Hints, Multiplexer, detect, viewport_from_env};
+use framefeed_proto::{Hints, Multiplexer, detect, viewport_for};
 
 pub fn run(_args: Vec<String>) -> ExitCode {
     let hints = Hints::from_env();
     let detection = detect(&hints);
-    let viewport = viewport_from_env();
+    let viewport = viewport_for(detection.backend);
     let raster = viewport.pixel_size();
     let budget = detection.backend.budget();
 
@@ -38,6 +38,12 @@ pub fn run(_args: Vec<String>) -> ExitCode {
         raster.height
     );
 
+    if hints.windows_terminal_session.is_some() {
+        println!(
+            "            Windows Terminal stores Sixel on a 10x20 px grid; the raster matches it 1:1"
+        );
+    }
+
     if let Some(multiplexer) = hints.multiplexer() {
         println!("Multiplexer: {multiplexer}");
         match multiplexer {
@@ -51,7 +57,7 @@ pub fn run(_args: Vec<String>) -> ExitCode {
     }
 
     println!(
-        "\nHint-based detection only: active probing (kitty graphics query, sixel DA,\ncell pixel size via CSI 16 t) lands in M2."
+        "\nHint-based detection only: active probes (kitty graphics query, sixel DA) land in M2.\nTerminal size comes from the console itself, with COLUMNS/LINES as fallback."
     );
     println!("Windows Terminal 1.22+ is detected as sixel: it draws real pixels, not half-blocks.");
     ExitCode::SUCCESS

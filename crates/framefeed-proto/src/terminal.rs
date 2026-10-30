@@ -3,10 +3,23 @@
 
 use std::io::{self, IsTerminal, Write};
 
-use framefeed_core::{DEFAULT_CELL, Viewport};
+use framefeed_core::{CellSize, DEFAULT_CELL, Viewport};
+
+use crate::detect::{Backend, Hints};
 
 const ENTER: &[u8] = b"\x1b[?1049h\x1b[?25l\x1b[2J\x1b[H";
 const LEAVE: &[u8] = b"\x1b[0m\x1b[?25h\x1b[?1049l";
+
+/// Cell geometry Windows Terminal uses for Sixel.
+///
+/// Windows Terminal stores Sixel images on a fixed 10×20 pixel grid and then
+/// stretches each grid cell to the font's cell size. Planning a raster in 8×16
+/// cells therefore gets resampled twice (once by us, once by the terminal) and
+/// comes out blocky; matching 10×20 keeps a single unavoidable scale step.
+pub const WT_SIXEL_CELL: CellSize = CellSize {
+    width_px: 10,
+    height_px: 20,
+};
 
 /// True when stdout is an interactive terminal.
 ///
@@ -17,15 +30,51 @@ pub fn stdout_is_tty() -> bool {
     io::stdout().is_terminal()
 }
 
-/// Viewport derived from `COLUMNS`/`LINES`, falling back to 80x24.
+/// Viewport for the current terminal, in cells and pixels.
 ///
-/// Cell pixel size is the conservative default until M2 adds `CSI 16 t` probing.
+/// Uses the real terminal size when there is one, then `COLUMNS`/`LINES`, then
+/// the conservative 80×24 fallback.
 #[must_use]
-pub fn viewport_from_env() -> Viewport {
-    let cols = env_dimension("COLUMNS").unwrap_or(80);
-    let rows = env_dimension("LINES").unwrap_or(24);
+pub fn viewport() -> Viewport {
+    let (cols, rows) = terminal_dimensions().unwrap_or((80, 24));
     Viewport::new(cols, rows, DEFAULT_CELL)
         .unwrap_or_else(|| Viewport::new(80, 24, DEFAULT_CELL).expect("non-zero fallback"))
+}
+
+/// Viewport using the cell geometry the chosen backend actually draws with.
+///
+/// Only Windows Terminal's Sixel path differs today; every other backend maps
+/// one raster pixel to one device pixel and is fine with [`DEFAULT_CELL`].
+#[must_use]
+pub fn viewport_for(backend: Backend) -> Viewport {
+    let cell = if backend == Backend::Sixel && Hints::from_env().windows_terminal_session.is_some()
+    {
+        WT_SIXEL_CELL
+    } else {
+        DEFAULT_CELL
+    };
+    let (cols, rows) = terminal_dimensions().unwrap_or((80, 24));
+    Viewport::new(cols, rows, cell)
+        .unwrap_or_else(|| Viewport::new(80, 24, cell).expect("non-zero fallback"))
+}
+
+/// Backwards-compatible alias for [`viewport`].
+#[must_use]
+pub fn viewport_from_env() -> Viewport {
+    viewport()
+}
+
+fn terminal_dimensions() -> Option<(u16, u16)> {
+    if let Some((terminal_size::Width(width), terminal_size::Height(height))) =
+        terminal_size::terminal_size()
+    {
+        if width > 0 && height > 0 {
+            return Some((width, height));
+        }
+    }
+    let cols = env_dimension("COLUMNS")?;
+    let rows = env_dimension("LINES")?;
+    Some((cols, rows))
 }
 
 fn env_dimension(name: &str) -> Option<u16> {
@@ -85,7 +134,8 @@ impl Drop for TerminalGuard {
 
 #[cfg(test)]
 mod tests {
-    use super::{TerminalGuard, env_dimension};
+    use super::{TerminalGuard, WT_SIXEL_CELL, env_dimension, viewport, viewport_for};
+    use crate::detect::Backend;
 
     #[test]
     fn guard_is_inert_without_a_tty() {
@@ -99,5 +149,17 @@ mod tests {
     #[test]
     fn env_dimensions_reject_garbage() {
         assert_eq!(env_dimension("FRAMEFEED_DOES_NOT_EXIST"), None);
+    }
+
+    #[test]
+    fn viewports_are_never_empty() {
+        assert!(viewport().cols > 0 && viewport().rows > 0);
+        assert!(viewport_for(Backend::Ansi).cols > 0);
+    }
+
+    #[test]
+    fn windows_terminal_sixel_uses_the_10x20_grid() {
+        assert_eq!(WT_SIXEL_CELL.width_px, 10);
+        assert_eq!(WT_SIXEL_CELL.height_px, 20);
     }
 }

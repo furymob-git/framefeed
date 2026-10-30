@@ -10,7 +10,7 @@ use framefeed_core::{Fit, Pace, Pacer, Raster, Size, plan_render};
 use framefeed_decode::{Decoder, FfmpegDecoder, OutputSize, probe};
 use framefeed_proto::{
     AnsiEncoder, Backend, Hints, KittyEncoder, KittyOptions, SixelEncoder, TerminalGuard, detect,
-    viewport_from_env,
+    viewport_for,
 };
 use framefeed_source::Quality;
 
@@ -94,8 +94,8 @@ pub fn run(args: Vec<String>) -> ExitCode {
 }
 
 fn play(options: PlayOptions) -> Result<(), String> {
-    let viewport = viewport_from_env();
     let backend = resolve_backend(options.backend);
+    let viewport = viewport_for(backend);
     let budget = backend.budget();
 
     let metadata = probe(&options.source).map_err(|error| error.to_string())?;

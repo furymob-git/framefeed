@@ -33,6 +33,7 @@ pub struct SixelEncoder {
     band: Vec<u8>,
     present: [bool; PALETTE_SIZE],
     colors: Vec<u8>,
+    bits: Vec<u8>,
     width: usize,
 }
 
@@ -50,6 +51,7 @@ impl SixelEncoder {
             band: Vec::new(),
             present: [false; PALETTE_SIZE],
             colors: Vec::new(),
+            bits: Vec::new(),
             width: 0,
         }
     }
@@ -65,6 +67,8 @@ impl SixelEncoder {
             return;
         }
         self.width = width;
+        self.bits.clear();
+        self.bits.resize(width, 0);
 
         out.extend_from_slice(b"\x1bPq");
         // Raster attributes: pixel aspect 1:1, then width and height.
@@ -97,11 +101,30 @@ impl SixelEncoder {
 
             for (position, color) in self.colors.iter().enumerate() {
                 let _ = write!(out, "#{color}");
-                let mut x = 0;
-                while x < width {
+                // One pass per colour builds the six-pixel column mask, and the
+                // empty span around the colour is skipped entirely: a plane that
+                // only touches a few columns costs a few columns, not the width.
+                let mut first = usize::MAX;
+                let mut last = 0usize;
+                for x in 0..width {
                     let bits = self.column_bits(x, rows, *color);
+                    self.bits[x] = bits;
+                    if bits != 0 {
+                        if first == usize::MAX {
+                            first = x;
+                        }
+                        last = x;
+                    }
+                }
+                debug_assert!(first != usize::MAX, "colour is present in the band");
+                if first > 0 {
+                    let _ = write!(out, "!{first}?");
+                }
+                let mut x = first;
+                while x <= last {
+                    let bits = self.bits[x];
                     let mut run = 1;
-                    while x + run < width && self.column_bits(x + run, rows, *color) == bits {
+                    while x + run <= last && self.bits[x + run] == bits {
                         run += 1;
                     }
                     if run > 3 {
@@ -114,6 +137,8 @@ impl SixelEncoder {
                     }
                     x += run;
                 }
+                // Trailing empty columns are unnecessary: `$`/`-` both reset the
+                // column, so sixel never has to run to the raster edge.
                 out.push(if position + 1 < color_count {
                     b'$'
                 } else {

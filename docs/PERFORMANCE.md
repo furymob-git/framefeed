@@ -111,6 +111,9 @@ and the public Mux HLS test stream (Big Buck Bunny) over HTTPS.
 | Kitty, `--quality 360p --fps 30` | 480×360 | 240 | 0 | 8.03 s | 29.9 | 29 KiB (zlib) |
 | Sixel, `--quality 360p --fps 30` | 480×360 | 240 | 0 | 8.08 s | 29.7 | 29 KiB |
 | Sixel, `--quality 240p --fps 24` | 320×240 | 240 | 0 | 10.02 s | 23.9 | 18 KiB |
+| Sixel, `--quality 480p --fps 30` | 640×480 | 240 | 0 | 8.06 s | 29.8 | 44 KiB |
+| Sixel, `--quality 720p --fps 30` | 960×720 | 240 | 0 | 8.03 s | 29.9 | 62 KiB |
+| Sixel, `--quality auto --fps 30` (200×55 cells, 10×20 grid) | 1440×1080 | 240 | 50 | 9.72 s | 24.7 | 103 KiB |
 | ANSI, synthetic 10 fps cap | 320×240 | 10 | 0 | 0.95 s | 10.5 | 378 KiB |
 | HLS (Mux), 8 s cap, 10 fps | 427×240 | 67 | — | 8 s | — | ~290 KiB |
 
@@ -126,6 +129,11 @@ What this already tells us:
   Kitty-only.
 - `serve` streams Sixel identically (`backend=sixel`): the curl check pulled 1.5 MiB
   in 4 s at 240p / 24 fps.
+- Full-window Sixel is encode-bound, not bandwidth-bound: 1440×1080 stays at
+  103 KiB/frame but costs ~40 ms of encoder time, so it lands at 24.7 fps on this
+  machine. 720p is the smooth option at 29.9 fps with zero drops, but on Windows
+  Terminal it only fills about 73% of a 55-row window (the image is drawn on the
+  10×20 grid, not stretched), which is why `--quality auto` prefers the full height.
 - The synthetic test pattern is a worst case for ANSI (~378 KiB/frame): noise does
   not compress and produces maximal SGR churn.
 
@@ -141,5 +149,5 @@ What this already tells us:
 > covered by a regression test, and re-measured above.
 
 Still to measure: the 60 fps target at 120×34 cells with a real terminal attached,
-Sixel at 800×480, startup latency and memory. Those are the M1 exit criteria the
+startup latency and memory. Those are the M1 exit criteria the
 benchmark suite (criterion + hyperfine) will track.

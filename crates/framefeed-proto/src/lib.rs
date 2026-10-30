@@ -19,4 +19,6 @@ pub use budget::Budget;
 pub use detect::{Backend, Detection, Hints, Multiplexer, detect};
 pub use kitty::{Compression, EncodeError, KittyEncoder, KittyOptions};
 pub use sixel::SixelEncoder;
-pub use terminal::{TerminalGuard, stdout_is_tty, viewport_from_env};
+pub use terminal::{
+    TerminalGuard, WT_SIXEL_CELL, stdout_is_tty, viewport, viewport_for, viewport_from_env,
+};

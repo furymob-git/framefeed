@@ -52,7 +52,7 @@ Video means "can repaint fast enough to look like motion", not just "can show a 
 | Ghostty | Kitty graphics | ✅ | |
 | Konsole | Kitty graphics, Sixel | ✅ | |
 | iTerm2 | iTerm2 inline images, Sixel | ✅ | Full re-upload per frame; higher cost |
-| Windows Terminal ≥ 1.22 | Sixel | ✅ | Kitty protocol not supported; framefeed uses Sixel here |
+| Windows Terminal ≥ 1.22 | Sixel | ✅ | Kitty protocol not supported; raster matched to its 10×20 px grid |
 | foot, mintty, Rio, Contour, mlterm | Sixel | ✅ | |
 | Alacritty | none | ❌ | ANSI/ASCII fallback only |
 | tmux / screen | passthrough | ⚠️ partial | `set -g allow-passthrough on`; Sixel needs tmux built with `--enable-sixel` |
@@ -64,8 +64,10 @@ Video means "can repaint fast enough to look like motion", not just "can show a 
 > project, so it is tested first, not last.
 >
 > framefeed drives **Kitty graphics**, **Sixel** and **ANSI half-blocks** today, so
-> Windows Terminal 1.22+ draws real pixels through Sixel (`auto` picks it). The
-> iTerm2 encoder is the only display backend still missing.
+> Windows Terminal 1.22+ draws real pixels through Sixel (`auto` picks it). On
+> Windows Terminal the raster is planned on its 10×20 px Sixel grid and sized from
+> the real window, so the picture is not upscaled. The iTerm2 encoder is the only
+> display backend still missing.
 
 ## Usage
 
@@ -82,8 +84,9 @@ $ curl -N 'http://127.0.0.1:8080/stream?url=./clip.mp4&q=144p'
 ```
 
 `--backend auto` prefers Kitty graphics, then Sixel, then ANSI half-blocks; force
-one with `--backend kitty|sixel|ansi`. Playback is video-only for now: audio and
-seeking are M4.
+one with `--backend kitty|sixel|ansi`. `--quality auto` (the default) sizes the
+raster from the real terminal dimensions, so the video fills the window.
+Playback is video-only for now: audio and seeking are M4.
 
 Quality is a *rendering* budget: `--quality 144p` caps the raster at 144 px tall, so
 the decoder, encoder and pipe all move fewer pixels. The library also picks the

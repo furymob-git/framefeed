@@ -296,10 +296,13 @@ mod tests {
     }
 
     #[test]
-    fn budgets_are_ordered_by_cost() {
-        assert!(
-            Backend::Kitty.budget().max_raster_height >= Backend::Sixel.budget().max_raster_height
-        );
-        assert!(Backend::Kitty.budget().max_fps >= Backend::Ansi.budget().max_fps);
+    fn pixel_backends_allow_more_than_ansi() {
+        // Sixel needs a taller raster than Kitty: Windows Terminal draws it on a
+        // 10×20 grid and the raster must reach the window height to avoid an
+        // upscale, so the budgets are not simply ordered by backend quality.
+        for backend in [Backend::Kitty, Backend::Sixel] {
+            assert!(backend.budget().max_raster_height >= Backend::Ansi.budget().max_raster_height);
+            assert!(backend.budget().max_fps >= Backend::Ansi.budget().max_fps);
+        }
     }
 }

@@ -19,9 +19,11 @@ impl Budget {
         max_raster_height: 720,
         max_fps: 60,
     };
-    /// Sixel: palette indexing plus a full repaint every frame.
+    /// Sixel: palette indexing plus a full repaint every frame. Windows Terminal
+    /// draws it on a 10×20 grid stretched to the font cell, so the raster has to
+    /// reach the terminal's real pixel height to avoid a visible upscale.
     pub const SIXEL: Self = Self {
-        max_raster_height: 480,
+        max_raster_height: 1080,
         max_fps: 30,
     };
     /// iTerm2 inline images: a full base64 image per frame.

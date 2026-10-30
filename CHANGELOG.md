@@ -20,6 +20,10 @@ this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
   run-length encoding and band repaint. Windows Terminal 1.22+, foot, WezTerm,
   Konsole and iTerm2 now draw real pixels; `--backend auto` prefers Kitty, then
   Sixel, then ANSI, and `serve` accepts `backend=sixel`.
+- Playback now sizes itself from the real terminal (falling back to `COLUMNS` /
+  `LINES`), and Windows Terminal's Sixel path uses its 10×20 px cell grid so the
+  raster matches the window instead of being resampled. The Sixel budget rises to
+  1080 px tall to reach full-window height.
 
 - Repository bootstrap: workspace, lint policy, CI (fmt, clippy, test matrix, MSRV,
   `cargo-deny`, rustdoc), contribution and security policies, issue/PR templates.

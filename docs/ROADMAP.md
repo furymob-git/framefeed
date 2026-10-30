@@ -42,6 +42,7 @@ measured; see `docs/PERFORMANCE.md`.
 ## M2 — Universal (sixel, ANSI, detection)
 
 - [x] Sixel encoder with 240-color cube + grey ramp + per-colour RLE
+- [x] Real terminal dimensions + Windows Terminal 10×20 Sixel grid (active `CSI 16 t` probe still M2)
 - [ ] Adaptive Sixel palette and dithering (behind `--dither adaptive`)
 - [x] ANSI half-block backend
 - [ ] ASCII mode (luminance ramp)
