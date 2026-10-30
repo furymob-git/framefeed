@@ -10,7 +10,7 @@ homepage.workspace = true
 authors.workspace = true
 
 [dependencies]
-framefeed-core = { path = "../framefeed-core" }
+framefeed-core = { version = "0.1.0", path = "../framefeed-core" }
 
 [lints]
 workspace = true

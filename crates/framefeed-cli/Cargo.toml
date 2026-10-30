@@ -15,11 +15,11 @@ name = "framefeed"
 path = "src/main.rs"
 
 [dependencies]
-framefeed-core = { path = "../framefeed-core" }
-framefeed-decode = { path = "../framefeed-decode" }
-framefeed-proto = { path = "../framefeed-proto" }
-framefeed-server = { path = "../framefeed-server" }
-framefeed-source = { path = "../framefeed-source" }
+framefeed-core = { version = "0.1.0", path = "../framefeed-core" }
+framefeed-decode = { version = "0.1.0", path = "../framefeed-decode" }
+framefeed-proto = { version = "0.1.0", path = "../framefeed-proto" }
+framefeed-server = { version = "0.1.0", path = "../framefeed-server" }
+framefeed-source = { version = "0.1.0", path = "../framefeed-source" }
 ctrlc = "3"
 
 [lints]
