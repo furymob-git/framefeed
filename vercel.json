@@ -1,0 +1,10 @@
+{
+  "outputDirectory": "public",
+  "rewrites": [
+    { "source": "/:slug", "destination": "/api/stream?slug=:slug" }
+  ],
+  "functions": {
+    "api/stream.js": { "maxDuration": "max" },
+    "api/videos.js": { "maxDuration": 10 }
+  }
+}

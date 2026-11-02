@@ -1,0 +1,17 @@
+# Exclude everything not needed at runtime
+videos/
+target/
+crates/
+site/
+docs/
+scripts/
+test/
+.github/
+*.rs
+*.toml
+Cargo.lock
+Dockerfile
+docker-compose.yml
+.env*
+*.private.*
+# Keep runtime essentials: api/, lib/, public/, package.json, package-lock.json, vercel.json

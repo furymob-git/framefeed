@@ -140,6 +140,10 @@ crates/
   framefeed-decode/   # ffmpeg/ffprobe sidecar decoder
   framefeed-source/   # quality model, HLS master playlist, variant selection
   framefeed-server/   # /stream and /healthz over a hand-written HTTP/1.1 server
+api/                  # Vercel functions: /<slug> stream and /api/videos catalog
+lib/                  # ANSI encoder, stream handler, Neon catalog (Node)
+public/               # static catalog page served by Vercel
+scripts/              # publish, unpublish, dev server, local launchers
 videos/
   demo/               # committed, CC-BY demo clips served at /<name>
   ...                 # your own media, git-ignored (README kept)
@@ -148,6 +152,7 @@ docs/
   PROTOCOLS.md        # kitty vs sixel vs iTerm2 vs ANSI: costs and detection
   PERFORMANCE.md      # targets, budgets, benchmark methodology, regression policy
   STREAMING.md        # sources, variant selection, `serve` API and abuse limits
+  VERCEL.md           # DB + object storage deployment, publish and operations
   ROADMAP.md          # milestones and exit criteria
   adr/                # architecture decision records
 ```
@@ -186,6 +191,34 @@ binary. Hosting, limits and every query parameter: [docs/DEPLOY.md](docs/DEPLOY.
 
 Drop your own clips in [`videos/`](videos/README.md) — personal media there is
 git-ignored, and `scripts/play.bat` lists them so you can pick one when no path is given.
+
+## Deploy on Vercel
+
+The repository also deploys as a serverless Vercel project: a static catalog at
+`/`, a JSON listing at `/api/videos`, and `GET /<slug>` streaming a clip as ANSI
+truecolor into any terminal.
+
+```console
+$ curl -N https://<project>.vercel.app/<slug>
+```
+
+Media is **not** served from `videos/` and no ffmpeg runs in the cloud. A local
+publish script extracts gzipped RGB565LE frames, uploads them to a public Vercel
+Blob store and writes metadata to Neon Postgres. The function converts frames to
+ANSI and paces the response. Nothing secret is committed.
+
+Setup in short:
+
+1. Import the repo into Vercel (framework preset **Other**; `vercel.json` sets
+   `outputDirectory` to `public`).
+2. Create Neon Postgres and a public Vercel Blob store from the Vercel dashboard.
+3. `vercel env pull .env.local && npm ci && npm run db:init`
+4. `npm run publish -- ./videos/clip.mp4 --slug clip --title "Clip"`
+5. `vercel --prod`, then `curl -N https://<project>.vercel.app/clip`.
+
+Hobby functions stop at 300 s, so `MAX_STREAM_SECONDS` defaults to 285; Pro
+supports 800 s (`MAX_STREAM_SECONDS=780`). Bandwidth, limits, troubleshooting and
+the full architecture: [docs/VERCEL.md](docs/VERCEL.md).
 
 ## Contributing
 

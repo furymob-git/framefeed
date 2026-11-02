@@ -1,0 +1,650 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>framefeed — video in your terminal</title>
+<meta name="description" content="Stream video into your terminal with curl. A catalog of clips playable in any truecolor terminal.">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<style>
+  :root {
+    color-scheme: dark;
+    --bg: #0b0d10;
+    --panel: #12161b;
+    --line: #1f262e;
+    --text: #e6edf3;
+    --muted: #8b98a5;
+    --muted-soft: #5c6874;
+    --accent: #57d9a3;
+    --accent-text: #071c14;
+    --warn: #e8b44c;
+    --warn-soft: rgba(232, 180, 76, 0.10);
+    --radius: 12px;
+    --max-width: 64rem;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font: 16px/1.55 ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+  }
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+  .skip-link {
+    position: absolute;
+    left: -9999px;
+    top: 1rem;
+    z-index: 100;
+    background: var(--panel);
+    color: var(--text);
+    padding: .4rem .8rem;
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    font-size: .9rem;
+  }
+  .skip-link:focus {
+    left: 1rem;
+    top: 1rem;
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+  }
+
+  /* Header */
+  .site-header { border-bottom: 1px solid var(--line); background: var(--bg); }
+  .header-inner {
+    max-width: var(--max-width);
+    margin: 0 auto;
+    padding: 1.1rem 1rem;
+    display: flex;
+    flex-direction: column;
+    gap: .6rem;
+  }
+  @media (min-width: 560px) {
+    .header-inner { flex-direction: row; align-items: center; justify-content: space-between; }
+  }
+  .brand { display: flex; flex-direction: column; gap: .25rem; }
+  .wordmark {
+    font-size: 1.6rem;
+    font-weight: 800;
+    letter-spacing: -.03em;
+    color: var(--text);
+    text-decoration: none;
+  }
+  .wordmark .dot { color: var(--accent); }
+  .tagline { color: var(--muted); font-size: .92rem; margin: 0; }
+  .github-link {
+    color: var(--accent);
+    font-weight: 800;
+    font-size: .92rem;
+    text-decoration: none;
+  }
+  .github-link svg { width: 16px; height: 16px; vertical-align: -1px; fill: var(--accent); }
+
+  /* Hero */
+  main { flex: 1; }
+  .hero {
+    max-width: var(--max-width);
+    margin: 0 auto;
+    padding: 3rem 1rem 2rem;
+  }
+  .hero h1 {
+    font-size: clamp(2rem, 6vw, 3rem);
+    line-height: 1.12;
+    margin: 0 0 .85rem;
+    letter-spacing: -.02em;
+  }
+  .hero h1 .accent { color: var(--accent); }
+  .hero p {
+    color: var(--muted);
+    font-size: 1.05rem;
+    margin: 0 0 1.5rem;
+    max-width: 44rem;
+  }
+  .term { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; }
+  .term-bar {
+    display: flex;
+    align-items: center;
+    gap: .55rem;
+    padding: .55rem .9rem;
+    border-bottom: 1px solid var(--line);
+    background: #0f1318;
+  }
+  .dot { width: 8px; height: 8px; border-radius: 50%; }
+  .dot.r { background: #ff5f56; }
+  .dot.y { background: #febc2e; }
+  .dot.g { background: #28c840; }
+  .term-body { padding: .9rem 1rem; }
+  .prompt {
+    font: 13px/1.5 ui-monospace, SFMono-Regular, "Cascadia Mono", Consolas, monospace;
+    color: var(--text);
+  }
+  .prompt-sym { color: var(--muted-soft); user-select: none; margin-right: .4ch; }
+  .command { color: var(--accent); }
+  .term-host, .term-slug { color: var(--text); }
+  .hero-hint {
+    color: var(--muted);
+    font-size: .9rem;
+    margin: .8rem 0 0;
+    max-width: 44rem;
+  }
+
+  /* Catalog */
+  .catalog {
+    max-width: var(--max-width);
+    margin: 0 auto;
+    padding: 0 1rem 4rem;
+  }
+  section h2 {
+    font-size: .78rem;
+    text-transform: uppercase;
+    letter-spacing: .15em;
+    color: var(--muted-soft);
+    margin: 0 0 1rem;
+  }
+  .catalog-header {
+    display: flex;
+    align-items: baseline;
+    gap: .5rem;
+    margin-bottom: .1rem;
+    flex-wrap: wrap;
+  }
+  .catalog-header .count {
+    color: var(--text);
+    font-size: 1.05rem;
+    font-weight: 800;
+    text-transform: none;
+    letter-spacing: normal;
+  }
+  .catalog-list { display: flex; flex-direction: column; gap: 1rem; }
+  .state { display: none; }
+  .catalog-list.is-loading .state-loading,
+  .catalog-list.is-error .state-error,
+  .catalog-list.is-empty .state-empty,
+  .catalog-list.is-populated .state-cards { display: block; }
+
+  .state-loading {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: .85rem;
+    padding: 4rem 1rem;
+    color: var(--muted);
+  }
+  .skeleton { display: flex; gap: .8rem; align-items: flex-start; }
+  .sk-line {
+    height: 15px;
+    border-radius: 4px;
+    background: linear-gradient(90deg, #12161b 25%, #1f262e 50%, #12161b 75%);
+    background-size: 200% 100%;
+    animation: pulse 1.6s infinite ease-in-out;
+  }
+  .sk-line.wide { width: 280px; }
+  .sk-line.narrow { width: 170px; }
+  @keyframes pulse {
+    0% { background-position: 200% 0; }
+    100% { background-position: -200% 0; }
+  }
+  @media (prefers-reduced-motion: reduce) { .sk-line { animation: none; } }
+
+  .state-empty, .state-error { text-align: center; padding: 5rem 1rem; color: var(--muted); }
+  .state-empty p, .state-error p { margin: 0 0 1rem; font-size: 1.1rem; }
+  .state-empty p { color: var(--text); font-weight: 700; }
+  .muted-note { color: var(--muted); font-size: .95rem; margin: 0; }
+  .muted-note code { color: var(--accent); }
+
+  /* Card */
+  .card {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    padding: 1.15rem 1.3rem;
+    display: flex;
+    flex-direction: column;
+    gap: .8rem;
+  }
+  .card-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: .75rem;
+    flex-wrap: wrap;
+  }
+  .card-title {
+    margin: 0;
+    font-size: 1.08rem;
+    font-weight: 800;
+    letter-spacing: -.01em;
+    color: var(--text);
+  }
+  .badge {
+    font: 11px/1 ui-monospace, SFMono, "Cascadia Mono", Consolas, monospace;
+    padding: .18rem .55rem;
+    border-radius: 6px;
+    border: 1px solid;
+    color: var(--text);
+    background: transparent;
+  }
+  .badge-limit { border-color: var(--warn); color: var(--warn); background: var(--warn-soft); }
+  .card-desc {
+    margin: 0;
+    color: var(--muted);
+    font-size: .98rem;
+    line-height: 1.5;
+  }
+  .card-meta {
+    display: flex;
+    align-items: center;
+    gap: .55rem;
+    font: 12px/1.5 ui-monospace, SFMono, "Cascadia Mono", Consolas, monospace;
+    color: var(--muted);
+    flex-wrap: wrap;
+  }
+  .sep { color: var(--line); padding: 0 .1ch; }
+  .card-command {
+    display: flex;
+    gap: .75rem;
+    align-items: center;
+    flex-wrap: wrap;
+    margin-top: .15rem;
+  }
+  pre.cmd {
+    flex: 1;
+    min-width: 0;
+    margin: 0;
+    background: #0c0e14;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: .6rem .75rem;
+    font: 13px/1.5 ui-monospace, SFMono-Regular, "Cascadia Mono", Consolas, monospace;
+    color: var(--text);
+    overflow-x: auto;
+    white-space: pre;
+  }
+  pre.cmd code { color: var(--text); }
+  .copy-btn {
+    flex-shrink: 0;
+    background: var(--panel);
+    border: 1px solid var(--line);
+    color: var(--text);
+    padding: .32rem .85rem;
+    border-radius: 6px;
+    font-size: .85rem;
+    font-family: inherit;
+    font-weight: 800;
+    cursor: pointer;
+    white-space: nowrap;
+  }
+  .copy-btn:hover { border-color: var(--muted); }
+  .copy-btn.copied { border-color: var(--accent); color: var(--accent); }
+  .copy-ok {
+    color: var(--accent);
+    font: 11px/1 ui-monospace, SFMono, "Cascadia Mono", Consolas, monospace;
+    margin-left: auto;
+  }
+
+  /* How it works */
+  .how-it-works {
+    max-width: var(--max-width);
+    margin: 0 auto;
+    padding: 0 1rem 4rem;
+    border-top: 1px solid var(--line);
+  }
+  .steps {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    list-style: none;
+    margin: 0;
+    padding: 0;
+  }
+  @media (min-width: 660px) { .steps { flex-direction: row; gap: 1rem; } }
+  .step {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: .6rem;
+    padding: 1.3rem 1.2rem;
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    min-width: 0;
+  }
+  .step-num { font: 800 1.6rem/1 ui-monospace, monospace; color: var(--accent); }
+  .step h3 { margin: 0; font-size: 1rem; color: var(--text); }
+  .step p { margin: 0; color: var(--muted); font-size: .96rem; line-height: 1.5; }
+  .step code { color: var(--accent); font-size: .92em; }
+
+  /* Footer */
+  footer {
+    max-width: var(--max-width);
+    margin: 0 auto auto;
+    padding: 2.5rem 1rem 3rem;
+    color: var(--muted-soft);
+    font-size: .88rem;
+    border-top: 1px solid var(--line);
+  }
+  footer p { margin: 0; }
+
+  .btn-primary {
+    display: inline-flex;
+    align-items: center;
+    gap: .4rem;
+    background: var(--accent);
+    color: var(--accent-text);
+    border: none;
+    padding: .45rem 1.1rem;
+    border-radius: 6px;
+    font-weight: 800;
+    font-size: .9rem;
+    cursor: pointer;
+    font-family: inherit;
+    text-decoration: none;
+  }
+  .btn-primary:hover { filter: brightness(1.1); }
+  .btn-primary:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+  pre { margin: 0; }
+  code { font-family: ui-monospace, SFMono-Regular, "Cascadia Mono", Consolas, monospace; }
+</style>
+</head>
+<body>
+  <a href="#catalog" class="skip-link">Skip to catalog</a>
+
+  <header class="site-header">
+    <div class="header-inner">
+      <div class="brand">
+        <a class="wordmark" href="/">framefeed<span class="dot">.</span></a>
+        <p class="tagline">Video in your terminal. Stream any clip with a single curl command.</p>
+      </div>
+      <a class="github-link" href="https://github.com/furymob-git/framefeed" target="_blank" rel="noopener">
+        <svg viewBox="0 0 16 16" aria-hidden="true"><path fill-rule="evenodd" d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.04.59 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27s1.36.09 2 .27c1.54-1.03 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.19 0 .21.15.46.55.38A8.013 8.013 0 0 0 16 8c0-4.42-3.58-8-8-8z"></path></svg>
+        GitHub
+      </a>
+    </div>
+  </header>
+
+  <main>
+    <section class="hero">
+      <h1>Watch <span class="accent">video</span> in your terminal</h1>
+      <p>framefeed streams real video frames as ANSI truecolor over plain HTTP — 80&times;24 cells per frame. No browser player, no app install — just your terminal and a single <code>curl -N</code> command.</p>
+      <div class="term">
+        <div class="term-bar">
+          <span class="dot r"></span>
+          <span class="dot y"></span>
+          <span class="dot g"></span>
+          <span style="color: var(--muted-soft); font: 12px/1 ui-monospace, SFMono, monospace; letter-spacing: .06em;">terminal</span>
+        </div>
+        <div class="term-body">
+          <div class="prompt">
+            <span class="prompt-sym">$</span>
+            <span class="command">curl -N</span>
+            <span id="example-host" class="term-host">https://<this-host></span>/<span id="example-slug" class="term-slug">&lt;slug&gt;</span>
+          </div>
+        </div>
+      </div>
+      <p class="hero-hint">The host resolves to this deployment immediately; the slug picks up a real clip once the catalog loads. Copy the command and paste it into any truecolor terminal — it works over SSH too.</p>
+    </section>
+
+    <section class="catalog" aria-labelledby="catalog-heading">
+      <h2 id="catalog-heading">Catalog</h2>
+      <div class="catalog-header">
+        <span>Videos</span>
+        <span class="count" id="catalog-count">0</span>
+      </div>
+      <div class="catalog-list is-loading" id="catalog-list" aria-live="polite">
+        <div class="state state-loading">
+          <div class="skeleton">
+            <span class="sk-line wide"></span>
+            <span class="sk-line narrow"></span>
+            <span class="sk-line narrow"></span>
+          </div>
+          <p style="color: var(--muted); margin: 0; font-size: .95rem;">Loading catalog…</p>
+        </div>
+        <div class="state state-error">
+          <p>Couldn&rsquo;t load the catalog.</p>
+          <button type="button" class="btn-primary" id="btn-retry">Retry</button>
+        </div>
+        <div class="state state-empty">
+          <p>No videos in the catalog yet.</p>
+          <p class="muted-note">The owner can publish a clip with <code>npm run publish</code>.</p>
+        </div>
+        <div class="state state-cards"></div>
+      </div>
+    </section>
+
+    <section class="how-it-works" aria-labelledby="how-heading">
+      <h2 id="how-heading">How it works</h2>
+      <ol class="steps">
+        <li class="step">
+          <span class="step-num">01</span>
+          <h3>Copy the command</h3>
+          <p>Open any catalog card and copy the <code>curl -N</code> command.</p>
+        </li>
+        <li class="step">
+          <span class="step-num">02</span>
+          <h3>Run it in your terminal</h3>
+          <p>Paste it into Kitty, WezTerm, iTerm2, Windows Terminal, or over SSH. <code>-N</code> keeps the stream unbuffered so frames play live.</p>
+        </li>
+        <li class="step">
+          <span class="step-num">03</span>
+          <h3>Press Ctrl+C to stop</h3>
+          <p>Streams are plain ANSI frames. <code>Ctrl+C</code> ends playback and returns you to your prompt.</p>
+        </li>
+      </ol>
+    </section>
+
+    <footer>
+      <p>
+        <a href="https://github.com/furymob-git/framefeed" target="_blank" rel="noopener">GitHub</a> &middot;
+        MIT licensed &middot; Streams are plain ANSI — not browser video.
+      </p>
+    </footer>
+  </main>
+
+  <script>
+    (function () {
+      'use strict';
+
+      var API = '/api/videos';
+      var origin = location.origin;
+      var listEl = document.getElementById('catalog-list');
+      var countEl = document.getElementById('catalog-count');
+      var hostEl = document.getElementById('example-host');
+      var slugEl = document.getElementById('example-slug');
+      var retryBtn = document.getElementById('btn-retry');
+
+      var videos = [];
+      var maxSeconds = 0;
+
+      function formatDuration(sec) {
+        var total = Math.max(0, Math.floor(Number(sec) || 0));
+        var m = Math.floor(total / 60);
+        var s = total % 60;
+        return m + ':' + (s < 10 ? '0' : '') + s;
+      }
+
+      function formatSize(bytes) {
+        if (bytes === undefined || bytes === null) return '—';
+        var mb = Number(bytes) / (1024 * 1024);
+        if (!isFinite(mb)) return '—';
+        return mb.toFixed(1) + ' MB';
+      }
+
+      function setState(state) {
+        listEl.className = 'catalog-list is-' + state;
+      }
+
+      function updateExample(host, slug) {
+        if (hostEl) hostEl.textContent = host;
+        if (slugEl) slugEl.textContent = slug;
+      }
+
+      function resetCopyButton(btn, ok) {
+        btn.textContent = 'Copy';
+        btn.classList.remove('copied');
+        ok.textContent = '';
+        btn._copyTimer = null;
+      }
+
+      function scheduleCopyReset(btn, ok) {
+        if (btn._copyTimer) clearTimeout(btn._copyTimer);
+        btn._copyTimer = setTimeout(function () {
+          resetCopyButton(btn, ok);
+        }, 1500);
+      }
+
+      function showCopied(btn, ok) {
+        btn.textContent = 'Copied';
+        btn.classList.add('copied');
+        ok.textContent = 'Copied';
+        scheduleCopyReset(btn, ok);
+      }
+
+      function copyText(text) {
+        if (navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
+          return navigator.clipboard.writeText(text);
+        }
+        return new Promise(function (resolve, reject) {
+          var ta = document.createElement('textarea');
+          ta.value = text;
+          ta.setAttribute('readonly', '');
+          ta.style.position = 'absolute';
+          ta.style.left = '-9999px';
+          ta.style.top = '0';
+          document.body.appendChild(ta);
+          try {
+            ta.select();
+            document.execCommand('copy');
+            resolve();
+          } catch (err) {
+            reject(err);
+          } finally {
+            document.body.removeChild(ta);
+          }
+        });
+      }
+
+      function renderCard(v) {
+        var article = document.createElement('article');
+        article.className = 'card';
+
+        var header = document.createElement('div');
+        header.className = 'card-header';
+
+        var title = document.createElement('h3');
+        title.className = 'card-title';
+        title.textContent = v.title || '(untitled)';
+        header.appendChild(title);
+
+        if (v.durationSeconds > maxSeconds) {
+          var badge = document.createElement('span');
+          badge.className = 'badge badge-limit';
+          badge.textContent = 'Needs Pro (' + Math.floor(v.durationSeconds) + 's > ' + Math.floor(maxSeconds) + 's)';
+          header.appendChild(badge);
+        }
+        article.appendChild(header);
+
+        if (v.description) {
+          var desc = document.createElement('p');
+          desc.className = 'card-desc';
+          desc.textContent = v.description;
+          article.appendChild(desc);
+        }
+
+        var meta = document.createElement('div');
+        meta.className = 'card-meta';
+        var parts = [
+          formatDuration(v.durationSeconds),
+          (v.cols && v.rows ? String(v.cols) + '×' + String(v.rows) : '—'),
+          (v.fps ? String(v.fps) + ' fps' : '—'),
+          formatSize(v.sizeBytes)
+        ];
+        parts.forEach(function (p, i) {
+          if (i) meta.appendChild(document.createTextNode(' · '));
+          var span = document.createElement('span');
+          span.textContent = p;
+          meta.appendChild(span);
+        });
+        article.appendChild(meta);
+
+        var command = document.createElement('div');
+        command.className = 'card-command';
+
+        var pre = document.createElement('pre');
+        pre.className = 'cmd';
+        var code = document.createElement('code');
+        code.textContent = 'curl -N ' + origin + '/' + String(v.slug || '');
+        pre.appendChild(code);
+        command.appendChild(pre);
+
+        var btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'copy-btn';
+        btn.textContent = 'Copy';
+        btn.setAttribute('aria-label', 'Copy command to clipboard');
+
+        var ok = document.createElement('span');
+        ok.className = 'copy-ok';
+
+        btn.addEventListener('click', function () {
+          copyText(code.textContent).then(
+            function () { showCopied(btn, ok); },
+            function () {
+              btn.textContent = 'Copy failed';
+              scheduleCopyReset(btn, ok);
+            }
+          );
+        });
+
+        command.appendChild(btn);
+        command.appendChild(ok);
+        article.appendChild(command);
+
+        var cards = listEl.querySelector('.state-cards');
+        cards.appendChild(article);
+      }
+
+      function render() {
+        var cards = listEl.querySelector('.state-cards');
+        cards.innerHTML = '';
+        countEl.textContent = videos.length + ' video' + (videos.length === 1 ? '' : 's');
+        if (videos.length) {
+          videos.forEach(renderCard);
+        }
+      }
+
+      async function load() {
+        setState('loading');
+        updateExample('<this-host>', '<slug>');
+        try {
+          var res = await fetch(API, { cache: 'no-store' });
+          if (!res.ok) throw new Error('status ' + res.status);
+          var data = await res.json();
+          videos = Array.isArray(data.videos) ? data.videos : [];
+          maxSeconds = Number(data.maxSeconds) || 0;
+          if (videos.length) {
+            setState('populated');
+            render();
+            updateExample(origin, String(videos[0].slug || ''));
+          } else {
+            setState('empty');
+            updateExample(origin, '<slug>');
+          }
+        } catch (err) {
+          setState('error');
+          updateExample('<this-host>', '<slug>');
+        }
+      }
+
+      retryBtn.addEventListener('click', load);
+      load();
+    })();
+  </script>
+</body>
+</html>
