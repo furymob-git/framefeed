@@ -14,7 +14,7 @@ Supported containers are whatever the bundled `ffmpeg` can decode: `.mp4`, `.web
 ## Play them locally
 
 ```bat
-rem scripts pick the first video in videos/ when no path is given
+rem scripts list the videos in videos/ and ask which one to play when no path is given
 scripts\play.bat
 
 rem or name one explicitly

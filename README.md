@@ -185,7 +185,7 @@ Named clips are resolved inside one directory (no paths, no traversal), so
 binary. Hosting, limits and every query parameter: [docs/DEPLOY.md](docs/DEPLOY.md).
 
 Drop your own clips in [`videos/`](videos/README.md) — personal media there is
-git-ignored, and `scripts/play.bat` picks the first one when no path is given.
+git-ignored, and `scripts/play.bat` lists them so you can pick one when no path is given.
 
 ## Contributing
 
