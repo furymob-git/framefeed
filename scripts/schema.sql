@@ -11,9 +11,11 @@ create table if not exists videos (
   frame_count integer not null,
   duration_seconds double precision not null,
   size_bytes bigint not null,
+  format text not null default 'ansi',
   published boolean not null default true,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
   constraint slug_format check (slug ~ '^[a-z0-9][a-z0-9-]{0,62}$')
 );
 create index if not exists videos_published_created_idx on videos (published, created_at desc);
+alter table videos add column if not exists format text not null default 'ansi';

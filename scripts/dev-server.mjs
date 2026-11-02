@@ -33,11 +33,12 @@ function loadFixtures() {
     if (!f.endsWith('.json')) continue;
     const slug = f.replace(/\.json$/, '');
     const jsonPath = path.join(FIXTURES_DIR, f);
-    const gzPath = path.join(FIXTURES_DIR, slug + '.bin.gz');
-    if (!fs.existsSync(gzPath)) continue;
     try {
       const meta = JSON.parse(fs.readFileSync(jsonPath, 'utf8'));
-      fixtures.set(slug, { meta, gzPath });
+      const fileName = (meta && meta.file) || slug + '.bin.gz';
+      const gzPath = path.join(FIXTURES_DIR, fileName);
+      if (!fs.existsSync(gzPath)) continue;
+      fixtures.set(slug, { meta, gzPath, file: fileName });
     } catch {}
   }
   return fixtures;
@@ -57,6 +58,9 @@ export function startDevServer({ port = 0 } = {}) {
       cols: meta.cols,
       rows: meta.rows,
       fps: meta.fps,
+      format: (meta && meta.format) || 'ansi',
+      widthPx: meta.widthPx,
+      heightPx: meta.heightPx,
       durationSeconds: Number(meta.durationSeconds),
       sizeBytes: Number(meta.sizeBytes),
       createdAt: meta.createdAt,
@@ -66,15 +70,17 @@ export function startDevServer({ port = 0 } = {}) {
     const fx = fixtures.get(slug);
     if (!fx) return null;
     const m = fx.meta;
+    const fileName = (m && m.file) || (m.slug + '.bin.gz');
     return {
       slug: m.slug,
       title: m.title,
-      streamUrl: `http://127.0.0.1:${serverPort}/__frames/${m.slug}.bin.gz`,
+      streamUrl: `http://127.0.0.1:${serverPort}/__frames/${fileName}`,
       widthPx: m.widthPx,
       heightPx: m.heightPx,
       fps: m.fps,
       frameCount: m.frameCount,
       durationSeconds: Number(m.durationSeconds),
+      format: (m && m.format) || 'ansi',
     };
   };
 
@@ -105,7 +111,11 @@ export function startDevServer({ port = 0 } = {}) {
           res.end('bad path');
           return;
         }
-        const fx = fixtures.get(name.replace(/\.bin\.gz$/, ''));
+        let fx = [...fixtures.values()].find((x) => path.basename(x.gzPath) === name);
+        if (!fx) {
+          const slug = name.replace(/\.sixel\.bin\.gz$/, '').replace(/\.bin\.gz$/, '');
+          fx = fixtures.get(slug);
+        }
         const gzPath = fx ? fx.gzPath : path.join(FIXTURES_DIR, name);
         if (!fs.existsSync(gzPath)) {
           res.statusCode = 404;

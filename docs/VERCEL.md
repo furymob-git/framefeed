@@ -4,14 +4,14 @@ This deployment turns framefeed into a small, DB-driven streaming service:
 
 - `GET /` — static catalog page listing published clips.
 - `GET /api/videos` — JSON catalog used by the page.
-- `GET /<slug>` — plays one clip as ANSI truecolor frames in a terminal.
+- `GET /<slug>` — plays one clip as pre-encoded Sixel (or ANSI) frames in a terminal.
 - `GET /healthz` — liveness probe used by the local dev server.
 
 There is no ffmpeg, no native binary and no video file at runtime. Clips are
-converted **on your machine** into gzipped raw RGB565LE frames, stored in Vercel
-Blob, and described by a row in Neon Postgres. The function downloads the `.gz`,
-decompresses it in memory, converts each frame to ANSI half-blocks and paces the
-HTTP response at the clip's frame rate.
+pre-encoded **on your machine** into gzipped frames (Sixel for real pixels, or
+ANSI half-blocks), stored in Vercel Blob, and described by a row in Neon
+Postgres. The function streams the `.gz` through gunzip and paces the
+pre-encoded frames over HTTP at the clip's frame rate.
 
 ```
 browser ──► public/ (static catalog)
@@ -21,7 +21,7 @@ browser ──► public/ (static catalog)
 
 curl ──► /<slug> ──► Vercel Function ──► Vercel Blob (frames.bin.gz)
                          │
-                         └─ RGB565 → ANSI → chunked HTTP response
+                         └─ pre-encoded Sixel/ANSI → chunked HTTP response
 ```
 
 ## What you need
@@ -109,36 +109,49 @@ the database URL.
 $ npm run publish -- ./videos/rick-roll.private.mp4 \
     --slug rickroll \
     --title "Rick Roll" \
-    --description "Never gonna give you up."
+    --description "Never gonna give you up." \
+    --format sixel --width 800 --height 450 --start 18 --duration 45
 ```
 
 What happens:
 
 1. `ffprobe` reads the source duration and size.
-2. `ffmpeg` scales the clip to `cols × (rows * 2)` pixels, pads to preserve the
-   aspect ratio, drops audio/subtitles/data, and emits raw `rgb565le` frames.
-3. The frames are gzipped to `target/vercel/<slug>.bin.gz` and a metadata file
-   is written next to it.
-4. The `.gz` is uploaded to `videos/<slug>/frames.bin.gz` with a random suffix.
-5. The `videos` row is inserted or updated (`published = true`).
+2. `ffmpeg` scales the clip to `width × height` (Sixel) or
+   `cols × (rows * 2)` (ANSI), pads to preserve the aspect ratio, drops
+   audio/subtitles/data, and emits raw `rgb565le` frames.
+3. For Sixel, each frame is encoded to a complete Sixel image and written as
+   `[uint32LE frameLength][frameBytes]`; for ANSI, the raw RGB565 frames are
+   concatenated. The result is gzipped to
+   `target/vercel/<slug>.sixel.bin.gz` or `target/vercel/<slug>.bin.gz`.
+4. The `.gz` is uploaded to `videos/<slug>/<file>` with a random suffix.
+5. The `videos` row is inserted or updated with its `format` (`published = true`).
 
 Useful options:
 
 | Option | Default | Notes |
 |---|---|---|
-| `--cols` / `--rows` | `80` / `24` | Text cells. Pixels are `cols × rows*2`. |
+| `--format` | `ansi` | Output format: `sixel` (real pixels) or `ansi` (half-blocks). |
+| `--width` / `--height` | `800` / `450` | Pixel dimensions for Sixel output. |
+| `--cols` / `--rows` | `80` / `24` | Text cells for ANSI output. Pixels are `cols × rows*2`. |
 | `--fps` | `24` | Accepted range: 5–30. |
 | `--start` | `0` | Skip seconds at the beginning. |
 | `--duration` | full clip | Trim the clip, in seconds. |
 | `--dry-run` | off | Extract only; no database or Blob writes. |
 | `--ffmpeg` / `--ffprobe` | `ffmpeg` / `ffprobe` | Full paths, or set `FRAMEFEED_FFMPEG` / `FRAMEFEED_FFPROBE`. |
 
+For a high-detail Sixel excerpt:
+
+```console
+$ npm run publish -- ./videos/clip.mp4 --slug clip --title "Clip" \
+    --format sixel --width 800 --height 450 --start 30 --duration 45
+```
+
 Always do a dry run first when trying a new source:
 
 ```console
 $ npm run publish -- ./videos/clip.mp4 --slug clip --dry-run
 $ npm run dev
-$ curl -N http://127.0.0.1:3000/clip
+$ curl http://127.0.0.1:3000/clip
 ```
 
 The local dev server reads `target/vercel/*.json` and `*.bin.gz`; it needs no
@@ -167,16 +180,17 @@ $ vercel --prod
 # or push to the connected branch and let Vercel build
 ```
 
-Then, from any truecolor terminal:
+Then, from a Sixel-capable terminal (Windows Terminal 1.22+, WezTerm, Konsole,
+iTerm2):
 
 ```console
-$ curl -N https://<project>.vercel.app/rickroll
+$ curl https://<project>.vercel.app/rickroll
 ```
 
 The catalog is at `https://<project>.vercel.app/`; the JSON is at
-`/api/videos`. `curl -N` disables client-side buffering so frames appear live.
-`Ctrl+C` stops playback and leaves your shell usable — the stream does not switch
-to the alternate screen or hide the cursor.
+`/api/videos`. `curl -N` is optional and only works around a buffering proxy;
+frames appear live either way. `Ctrl+C` stops playback and leaves your shell
+usable — the stream does not switch to the alternate screen or hide the cursor.
 
 Test several concurrent streams (for example three terminal windows) to confirm
 the deployment handles simultaneous functions.
@@ -191,22 +205,24 @@ the body in memory; both should be fixed rather than worked around.
 
 ## Bandwidth and storage
 
-ANSI output is content-dependent: a busy 80×24 clip at 24 fps can produce a few
-megabytes per second. A full-length (≈3.5 minute) clip can therefore transfer
-roughly 0.5–0.75 GB per view. Budget accordingly:
+Sixel output at 800×450 and 24 fps is about 140 MB of terminal bytes per 45 s
+view (~3.1 MB/s). The Blob object is gzipped (~70 MB), but the function inflates
+it before writing, so the client receives the raw Sixel stream. Budget
+accordingly:
 
-| Plan | Included Fast Data Transfer | Rough full-length views |
+| Plan | Included Fast Data Transfer | Rough 45 s views |
 |---|---|---|
-| Hobby | 100 GB / month | ~130–200 |
-| Pro | 1 TB / month | ~1,300–2,000 |
+| Hobby | 100 GB / month | ~700 |
+| Pro | 1 TB / month | ~7,000 |
 
-Blob storage is much smaller: the gzipped frames for a 3–4 minute clip are
-typically 15–30 MB, so the 1 GB free Blob tier holds dozens of clips. Blob
-egress to the function counts against Blob transfer limits; check current
-pricing before publishing large catalogs.
+Blob storage is smaller than the streamed bytes but no longer tiny: a 45-second
+Sixel clip at 800×450 is roughly 65–75 MB gzipped, so the 1 GB free Blob tier
+holds about fifteen such clips. Blob egress to the function counts against Blob
+transfer limits; check current pricing before publishing large catalogs.
 
-Short clips, lower `--fps`, a smaller `--cols`/`--rows`, or a lower
-`MAX_STREAM_SECONDS` all reduce bandwidth immediately.
+Short clips, lower `--fps`, a smaller `--width`/`--height` (Sixel) or
+`--cols`/`--rows` (ANSI), or a lower `MAX_STREAM_SECONDS` all reduce bandwidth
+immediately.
 
 ## Security model
 
@@ -253,17 +269,19 @@ $ curl -sI https://<project>.vercel.app/rickroll   # HEAD: metadata only
 | `413 FUNCTION_PAYLOAD_TOO_LARGE` | A buffered response hit 4.5 MB. This design streams; check for a proxy or a code change that buffers. |
 | `ffmpeg could not be executed` | Install ffmpeg or pass `--ffmpeg` / `--ffprobe` (or `FRAMEFEED_FFMPEG` / `FRAMEFEED_FFPROBE`). |
 | `npm` is blocked in PowerShell | Use `npm.cmd` (execution policy blocks `npm.ps1`). |
-| No color / garbage characters | The terminal needs 24-bit color (`COLORTERM=truecolor`). ANSI output is not browser video. |
-| Stream stalls behind a proxy | Use `curl -N`; some proxies buffer `text/plain`, which is why the endpoint sends `application/octet-stream` with `no-transform`. |
+| No color / garbage characters | A Sixel-capable terminal is required for the pixel stream. Sixel/ANSI output is not browser video. |
+| Stream stalls behind a proxy | `curl -N` is optional and only works around a buffering proxy; the endpoint sends `application/octet-stream` with `no-transform`. |
 
 ## How the endpoint works
 
-- Frame file: raw RGB565 little-endian, exactly `width_px * height_px * 2`
-  bytes per frame, concatenated, then gzipped.
-- Metadata row: geometry, fps, frame count, duration, size and Blob URL.
-- The function fetches the whole `.gz` (tens of MB), inflates it as a stream,
-  splits it into frames, converts each frame to truecolor ANSI half-blocks and
-  writes at `1000 / fps` ms intervals. Backpressure is respected with `drain`.
+- Frame file: pre-encoded frames (Sixel or ANSI half-blocks), gzipped.
+- Metadata row: `format`, geometry (`cols`/`rows` or `widthPx`/`heightPx`), fps,
+  frame count, duration, size and Blob URL.
+- Sixel records are `[uint32LE frameLength][frameBytes]`; the length prefix is
+  how the function finds frame boundaries after inflating.
+- The function streams the `.gz` from Blob, inflates it on the fly, and paces
+  the pre-encoded frames at `1000 / fps` ms intervals. Backpressure is respected
+  with `drain`.
 - Headers: `Content-Type: application/octet-stream`,
   `Cache-Control: no-store, no-transform`, `X-Framefeed-Fps`,
   `X-Framefeed-Frames`, `X-Framefeed-Duration`. No `Content-Length`.

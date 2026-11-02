@@ -195,11 +195,12 @@ git-ignored, and `scripts/play.bat` lists them so you can pick one when no path 
 ## Deploy on Vercel
 
 The repository also deploys as a serverless Vercel project: a static catalog at
-`/`, a JSON listing at `/api/videos`, and `GET /<slug>` streaming a clip as ANSI
-truecolor into any terminal.
+`/`, a JSON listing at `/api/videos`, and `GET /<slug>` streaming a clip as
+real-pixel Sixel (800×450 px, 45 s excerpt) into Windows Terminal 1.22+,
+WezTerm, Konsole and iTerm2.
 
 ```console
-$ curl -N https://<project>.vercel.app/<slug>
+$ curl https://<project>.vercel.app/<slug>
 ```
 
 Media is **not** served from `videos/` and no ffmpeg runs in the cloud. A local
@@ -213,8 +214,8 @@ Setup in short:
    `outputDirectory` to `public`).
 2. Create Neon Postgres and a public Vercel Blob store from the Vercel dashboard.
 3. `vercel env pull .env.local && npm ci && npm run db:init`
-4. `npm run publish -- ./videos/clip.mp4 --slug clip --title "Clip"`
-5. `vercel --prod`, then `curl -N https://<project>.vercel.app/clip`.
+4. `npm run publish -- ./videos/clip.mp4 --slug clip --title "Clip" --format sixel --width 800 --height 450 --duration 45`
+5. `vercel --prod`, then `curl https://<project>.vercel.app/clip`.
 
 Hobby functions stop at 300 s, so `MAX_STREAM_SECONDS` defaults to 285; Pro
 supports 800 s (`MAX_STREAM_SECONDS=780`). Bandwidth, limits, troubleshooting and

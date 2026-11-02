@@ -132,3 +132,42 @@ test('stream HEAD', async () => {
   assert.equal(res.headers.get('x-framefeed-fps'), '24');
   server.close();
 });
+
+test('stream sixel 2 frames', async () => {
+  const frame1 = Buffer.from('\x1b[H\x1bPq#0;2;0;0;0~\x1b\\');
+  const frame2 = Buffer.from('\x1b[H\x1bPq#1;2;255;0;0~\x1b\\');
+  function record(f) {
+    const len = Buffer.alloc(4);
+    len.writeUInt32LE(f.length, 0);
+    return Buffer.concat([len, f]);
+  }
+  const compressed = zlib.gzipSync(Buffer.concat([record(frame1), record(frame2)]));
+  const getVideo = async (slug) => ({
+    slug,
+    title: 't',
+    streamUrl: 'http://example/frames.sixel.bin.gz',
+    format: 'sixel',
+    widthPx: 10,
+    heightPx: 10,
+    fps: 60,
+    frameCount: 2,
+    durationSeconds: 0.05,
+  });
+  const handler = createStreamHandler({ getVideo, maxSeconds: 285, fetchImpl: async () => new Response(compressed, { status: 200 }) });
+  const server = http.createServer(handler);
+  await new Promise((r) => server.listen(0, '127.0.0.1', r));
+  const port = server.address().port;
+  const res = await fetch(`http://127.0.0.1:${port}/testslug`);
+  assert.equal(res.status, 200);
+  const body = Buffer.from(await res.arrayBuffer());
+  const text = body.toString('utf8');
+  assert.ok(text.startsWith('\x1b[2J\x1b[H'));
+  assert.ok(text.includes('\x1bPq'));
+  assert.ok(text.includes('\x1b\\'));
+  const homes = (text.match(/\x1b\[H/g) || []).length;
+  assert.ok(homes >= 2, `expected >=2 frame homes, got ${homes}`);
+  assert.ok(text.endsWith('\x1b[0m\n'));
+  assert.ok(!text.includes('\x1b[?1049h'));
+  assert.ok(!text.includes('\x1b[?25l'));
+  server.close();
+});

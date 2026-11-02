@@ -6,6 +6,7 @@ import { createGzip } from 'node:zlib';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { neon } from '@neondatabase/serverless';
+import { encodeSixelFrame } from '../lib/sixel.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(__dirname, '..');
@@ -16,8 +17,11 @@ function parseArgs(argv) {
     slug: null,
     title: null,
     description: '',
+    format: 'ansi',
     cols: 80,
     rows: 24,
+    width: null,
+    height: null,
     fps: 24,
     start: 0,
     duration: null,
@@ -32,8 +36,11 @@ function parseArgs(argv) {
     else if (a === '--slug') args.slug = argv[++i];
     else if (a === '--title') args.title = argv[++i];
     else if (a === '--description') args.description = argv[++i];
+    else if (a === '--format') args.format = argv[++i];
     else if (a === '--cols') args.cols = Number(argv[++i]);
     else if (a === '--rows') args.rows = Number(argv[++i]);
+    else if (a === '--width') args.width = Number(argv[++i]);
+    else if (a === '--height') args.height = Number(argv[++i]);
     else if (a === '--fps') args.fps = Number(argv[++i]);
     else if (a === '--start') args.start = Number(argv[++i]);
     else if (a === '--duration') args.duration = Number(argv[++i]);
@@ -83,15 +90,30 @@ async function main() {
   if (!args.file) fail('Missing --file <path>');
   if (!existsSync(args.file)) fail('Input file not found: ' + args.file);
 
-  const cols = args.cols;
-  const rows = args.rows;
+  if (!['ansi', 'sixel'].includes(args.format)) fail('--format must be ansi or sixel');
+
   const fps = args.fps;
-  if (!Number.isInteger(cols) || cols <= 0) fail('cols must be positive integer');
-  if (!Number.isInteger(rows) || rows <= 0) fail('rows must be positive integer');
   if (!Number.isFinite(fps) || fps < 5 || fps > 30) fail('fps must be between 5 and 30');
   if (!Number.isFinite(args.start) || args.start < 0) fail('start must be >= 0');
   if (args.duration != null && (!Number.isFinite(args.duration) || args.duration <= 0))
     fail('duration must be > 0');
+
+  let cols, rows, width, height;
+  if (args.format === 'sixel') {
+    width = args.width == null ? 800 : args.width;
+    height = args.height == null ? 450 : args.height;
+    if (!Number.isInteger(width) || width <= 0) fail('width must be positive integer');
+    if (!Number.isInteger(height) || height <= 0) fail('height must be positive integer');
+    cols = Math.ceil(width / 10);
+    rows = Math.ceil(height / 20);
+  } else {
+    cols = args.cols;
+    rows = args.rows;
+    if (!Number.isInteger(cols) || cols <= 0) fail('cols must be positive integer');
+    if (!Number.isInteger(rows) || rows <= 0) fail('rows must be positive integer');
+    width = cols;
+    height = rows * 2;
+  }
 
   const ffmpegPath = args.ffmpeg || process.env.FRAMEFEED_FFMPEG || 'ffmpeg';
   const ffprobePath = args.ffprobe || process.env.FRAMEFEED_FFPROBE || 'ffprobe';
@@ -100,9 +122,6 @@ async function main() {
   if (!args.title) args.title = cleanTitle(baseName);
   if (!args.slug) args.slug = slugify(args.title || baseName);
   if (!/^[a-z0-9][a-z0-9-]{0,62}$/.test(args.slug)) fail('Invalid slug: ' + args.slug);
-
-  const width = cols;
-  const height = rows * 2;
 
   // ffprobe
   const probeRes = spawnSync(
@@ -134,7 +153,8 @@ async function main() {
   // extract
   const outDir = path.join(ROOT, 'target', 'vercel');
   mkdirSync(outDir, { recursive: true });
-  const gzPath = path.join(outDir, args.slug + '.bin.gz');
+  const fileName = args.format === 'sixel' ? args.slug + '.sixel.bin.gz' : args.slug + '.bin.gz';
+  const gzPath = path.join(outDir, fileName);
   const jsonPath = path.join(outDir, args.slug + '.json');
 
   const ffArgs = [
@@ -164,32 +184,81 @@ async function main() {
   );
 
   console.log('Extracting frames...');
-  let rawBytes = 0;
+  const frameSize = width * height * 2;
   const child = spawn(ffmpegPath, ffArgs, { stdio: ['ignore', 'pipe', 'inherit'] });
   child.on('error', (err) => {
     console.error('ffmpeg could not be executed:', err.message);
     console.error('Executable:', ffmpegPath);
     console.error('Set --ffmpeg or FRAMEFEED_FFMPEG to the full path.');
   });
-  const gz = createGzip();
-  const out = createWriteStream(gzPath);
-  child.stdout.on('data', (c) => {
-    rawBytes += c.length;
-  });
 
   let pipelineError = null;
   let exitCode = 0;
-  await Promise.all([
-    pipeline(child.stdout, gz, out).catch((err) => {
+  const exitPromise = new Promise((resolve) => {
+    child.on('close', (code) => {
+      exitCode = code == null ? 0 : code;
+      resolve();
+    });
+  });
+
+  let rawBytes = 0;
+  let frameCount = 0;
+
+  if (args.format === 'sixel') {
+    const gz = createGzip();
+    const out = createWriteStream(gzPath);
+    gz.pipe(out);
+    const finished = new Promise((resolve, reject) => {
+      out.on('finish', resolve);
+      out.on('error', reject);
+      gz.on('error', reject);
+    });
+
+    let buffer = Buffer.alloc(0);
+    try {
+      for await (const chunk of child.stdout) {
+        rawBytes += chunk.length;
+        buffer = Buffer.concat([buffer, chunk]);
+        while (buffer.length >= frameSize) {
+          const frameRaw = Buffer.from(buffer.subarray(0, frameSize));
+          buffer = buffer.subarray(frameSize);
+          const sixelFrame = encodeSixelFrame(frameRaw, width, height);
+          const lenBuf = Buffer.alloc(4);
+          lenBuf.writeUInt32LE(sixelFrame.length, 0);
+          const outBuf = Buffer.concat([lenBuf, sixelFrame]);
+          const ok = gz.write(outBuf);
+          if (!ok) await new Promise((r) => gz.once('drain', r));
+          frameCount++;
+          if (frameCount % 100 === 0) console.log('Encoded', frameCount, 'frames');
+        }
+      }
+    } catch (err) {
       pipelineError = err;
-    }),
-    new Promise((resolve) => {
-      child.on('close', (code) => {
-        exitCode = code == null ? 0 : code;
-        resolve();
-      });
-    }),
-  ]);
+    }
+    await exitPromise;
+    if (buffer.length > 0) {
+      pipelineError = pipelineError || new Error(`Trailing ${buffer.length} bytes`);
+    }
+    gz.end();
+    try {
+      await finished;
+    } catch (err) {
+      pipelineError = pipelineError || err;
+    }
+  } else {
+    const gz = createGzip();
+    const out = createWriteStream(gzPath);
+    child.stdout.on('data', (c) => {
+      rawBytes += c.length;
+    });
+    await Promise.all([
+      pipeline(child.stdout, gz, out).catch((err) => {
+        pipelineError = err;
+      }),
+      exitPromise,
+    ]);
+  }
+
   if (pipelineError) {
     fail('pipeline failed: ' + (pipelineError.message || String(pipelineError)));
   }
@@ -197,11 +266,12 @@ async function main() {
     fail('ffmpeg failed with exit code ' + exitCode);
   }
 
-  const frameBytes = width * height * 2;
-  if (rawBytes % frameBytes !== 0) {
-    fail(`Raw byte count ${rawBytes} is not a multiple of frame size ${frameBytes}`);
+  if (args.format === 'ansi') {
+    if (rawBytes % frameSize !== 0) {
+      fail(`Raw byte count ${rawBytes} is not a multiple of frame size ${frameSize}`);
+    }
+    frameCount = rawBytes / frameSize;
   }
-  const frameCount = rawBytes / frameBytes;
   const durationSeconds = frameCount / fps;
   const sizeBytes = statSync(gzPath).size;
 
@@ -218,6 +288,8 @@ async function main() {
     durationSeconds,
     sizeBytes,
     createdAt: new Date().toISOString(),
+    format: args.format,
+    file: fileName,
   };
 
   // write json
@@ -261,7 +333,7 @@ async function main() {
   const { put, del } = await import('@vercel/blob');
   console.log('Uploading to Blob...');
   const gzBuffer = readFileSync(gzPath);
-  const blob = await put(`videos/${args.slug}/frames.bin.gz`, gzBuffer, {
+  const blob = await put(`videos/${args.slug}/${fileName}`, gzBuffer, {
     access: 'public',
     token,
     addRandomSuffix: true,
@@ -273,8 +345,8 @@ async function main() {
 
   // upsert
   await sql(
-    `INSERT INTO videos (slug,title,description,stream_url,width_px,height_px,cols,rows,fps,frame_count,duration_seconds,size_bytes,published,created_at,updated_at)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,true,now(),now())
+    `INSERT INTO videos (slug,title,description,stream_url,width_px,height_px,cols,rows,fps,frame_count,duration_seconds,size_bytes,format,published,created_at,updated_at)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,true,now(),now())
      ON CONFLICT (slug) DO UPDATE SET
        title=EXCLUDED.title,
        description=EXCLUDED.description,
@@ -287,6 +359,7 @@ async function main() {
        frame_count=EXCLUDED.frame_count,
        duration_seconds=EXCLUDED.duration_seconds,
        size_bytes=EXCLUDED.size_bytes,
+       format=EXCLUDED.format,
        published=true,
        updated_at=now()`,
     [
@@ -302,6 +375,7 @@ async function main() {
       frameCount,
       durationSeconds,
       sizeBytes,
+      args.format,
     ]
   );
 
@@ -315,7 +389,7 @@ async function main() {
   }
 
   console.log('Published:', args.slug);
-  console.log('Play: curl -N https://<your-domain>/' + args.slug);
+  console.log('Play: curl https://<your-domain>/' + args.slug);
 }
 
 main().catch((err) => {

@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>framefeed — video in your terminal</title>
-<meta name="description" content="Stream video into your terminal with curl. A catalog of clips playable in any truecolor terminal.">
+<meta name="description" content="Stream video into your terminal with curl. A catalog of Sixel clips for Windows Terminal, WezTerm, Konsole and iTerm2.">
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
 <style>
   :root {
@@ -372,7 +372,7 @@
   <main>
     <section class="hero">
       <h1>Watch <span class="accent">video</span> in your terminal</h1>
-      <p>framefeed streams real video frames as ANSI truecolor over plain HTTP — 80&times;24 cells per frame. No browser player, no app install — just your terminal and a single <code>curl -N</code> command.</p>
+      <p>framefeed streams real video as Sixel pixels over plain HTTP — 800&times;450 px at 24 fps. No browser player, no app install — just a Sixel-capable terminal and a single <code>curl</code> command.</p>
       <div class="term">
         <div class="term-bar">
           <span class="dot r"></span>
@@ -383,12 +383,12 @@
         <div class="term-body">
           <div class="prompt">
             <span class="prompt-sym">$</span>
-            <span class="command">curl -N</span>
+            <span class="command">curl</span>
             <span id="example-host" class="term-host">https://<this-host></span>/<span id="example-slug" class="term-slug">&lt;slug&gt;</span>
           </div>
         </div>
       </div>
-      <p class="hero-hint">The host resolves to this deployment immediately; the slug picks up a real clip once the catalog loads. Copy the command and paste it into any truecolor terminal — it works over SSH too.</p>
+      <p class="hero-hint">The host resolves to this deployment immediately; the slug picks up a real clip once the catalog loads. Paste the command into Windows Terminal 1.22+, WezTerm, Konsole, or iTerm2 — Sixel is required for the pixel stream, and it works over SSH too.</p>
     </section>
 
     <section class="catalog" aria-labelledby="catalog-heading">
@@ -397,6 +397,7 @@
         <span>Videos</span>
         <span class="count" id="catalog-count">0</span>
       </div>
+      <p class="muted-note">Sixel is required for the pixel stream. Tested with Windows Terminal 1.22+, WezTerm, Konsole and iTerm2.</p>
       <div class="catalog-list is-loading" id="catalog-list" aria-live="polite">
         <div class="state state-loading">
           <div class="skeleton">
@@ -424,17 +425,17 @@
         <li class="step">
           <span class="step-num">01</span>
           <h3>Copy the command</h3>
-          <p>Open any catalog card and copy the <code>curl -N</code> command.</p>
+          <p>Open any catalog card and copy the <code>curl</code> command.</p>
         </li>
         <li class="step">
           <span class="step-num">02</span>
           <h3>Run it in your terminal</h3>
-          <p>Paste it into Kitty, WezTerm, iTerm2, Windows Terminal, or over SSH. <code>-N</code> keeps the stream unbuffered so frames play live.</p>
+          <p>Run it in a Sixel-capable terminal: Windows Terminal 1.22+, WezTerm, Konsole, or iTerm2 (over SSH works too). Frames play live as they arrive.</p>
         </li>
         <li class="step">
           <span class="step-num">03</span>
           <h3>Press Ctrl+C to stop</h3>
-          <p>Streams are plain ANSI frames. <code>Ctrl+C</code> ends playback and returns you to your prompt.</p>
+          <p>Streams are pre-encoded Sixel frames, not browser video. <code>Ctrl+C</code> stops playback and leaves your shell usable.</p>
         </li>
       </ol>
     </section>
@@ -442,7 +443,7 @@
     <footer>
       <p>
         <a href="https://github.com/furymob-git/framefeed" target="_blank" rel="noopener">GitHub</a> &middot;
-        MIT licensed &middot; Streams are plain ANSI — not browser video.
+        MIT licensed &middot; Streams are real pixels over plain HTTP — not browser video.
       </p>
     </footer>
   </main>
@@ -559,9 +560,12 @@
 
         var meta = document.createElement('div');
         meta.className = 'card-meta';
+        var sizePart = (v.format === 'sixel' && v.widthPx && v.heightPx)
+          ? String(v.widthPx) + '×' + String(v.heightPx) + ' px'
+          : (v.cols && v.rows ? String(v.cols) + '×' + String(v.rows) : '—');
         var parts = [
           formatDuration(v.durationSeconds),
-          (v.cols && v.rows ? String(v.cols) + '×' + String(v.rows) : '—'),
+          sizePart,
           (v.fps ? String(v.fps) + ' fps' : '—'),
           formatSize(v.sizeBytes)
         ];
@@ -579,7 +583,7 @@
         var pre = document.createElement('pre');
         pre.className = 'cmd';
         var code = document.createElement('code');
-        code.textContent = 'curl -N ' + origin + '/' + String(v.slug || '');
+        code.textContent = 'curl ' + origin + '/' + String(v.slug || '');
         pre.appendChild(code);
         command.appendChild(pre);
 
@@ -622,10 +626,23 @@
       async function load() {
         setState('loading');
         updateExample('<this-host>', '<slug>');
+        var controller = new AbortController();
+        var timeoutId = setTimeout(function () { controller.abort(); }, 8000);
+        var settled = false;
+        var watchdogId = setTimeout(function () {
+          if (!settled) {
+            settled = true;
+            setState('error');
+            updateExample('<this-host>', '<slug>');
+          }
+        }, 10000);
         try {
-          var res = await fetch(API, { cache: 'no-store' });
+          var res = await fetch(API + '?t=' + Date.now(), { cache: 'no-store', signal: controller.signal });
           if (!res.ok) throw new Error('status ' + res.status);
           var data = await res.json();
+          settled = true;
+          clearTimeout(timeoutId);
+          clearTimeout(watchdogId);
           videos = Array.isArray(data.videos) ? data.videos : [];
           maxSeconds = Number(data.maxSeconds) || 0;
           if (videos.length) {
@@ -637,6 +654,9 @@
             updateExample(origin, '<slug>');
           }
         } catch (err) {
+          settled = true;
+          clearTimeout(timeoutId);
+          clearTimeout(watchdogId);
           setState('error');
           updateExample('<this-host>', '<slug>');
         }

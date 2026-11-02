@@ -12,7 +12,7 @@ test('videos 200 json', async () => {
   const res = await fetch(`http://127.0.0.1:${port}/api/videos`);
   assert.equal(res.status, 200);
   assert.equal(res.headers.get('content-type'), 'application/json');
-  assert.match(res.headers.get('cache-control') || '', /s-maxage=30/);
+  assert.match(res.headers.get('cache-control') || '', /no-store/);
   const body = await res.json();
   assert.deepEqual(body, { videos: [{ slug: 'a', title: 'A' }], maxSeconds: 285 });
   server.close();
